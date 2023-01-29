@@ -1,0 +1,80 @@
+# GitHub reusable workflow for deploying a local Dockerfile to Google Container
+# Registry or Google Artifact Registry.
+
+on:
+  workflow_call:
+    inputs:
+      project-id:
+        description: ID of the GCP project where the container should be pushed to
+        required: true
+        type: string
+      region-zone:
+        description: Region zone of the GCP resources
+        required: true
+        type: string
+      environment:
+        description: Environment
+        required: true
+        type: string
+      image:
+        description: Docker image to deploy
+        required: true
+        type: string
+      k8s-namespace:
+        description: Kubernetes namespace in the GKE cluster to deploy to.
+        required: false
+        type: string
+      k8s-service-name:
+        description: Kubernetes service to deploy to in the GKE cluster.
+        required: true
+        type: string
+      k8s-deployment-name:
+        description: Kubernetes deployment to update at the end of the deployment.
+        required: true
+        type: string
+      workload-identity-provider:
+        description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
+        required: true
+        type: string
+      service-account:
+        description: GCP service account to impersonate by this Workload Identity
+        required: true
+        type: string
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
+      - name: Authenticate Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          token_format: access_token
+          workload_identity_provider: ${{ inputs.workload-identity-provider }}
+          service_account: ${{ inputs.service-account }}
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+      - name: Set env
+        id: env
+        run: |-
+          gcloud --quiet config set project ${{ inputs.project-id }}
+          gcloud --quiet config set compute/zone ${{ inputs.region-zone }}
+      - name: Deploy containers
+        run: |-
+          k8s_clusters = $(sh scripts/get_gke_clusters.sh \
+            ${{ inputs.k8s-service-name }} \
+            ${{ inputs.environment }} \
+          )
+          sh scripts/deploy_gke_clusters.sh \
+            "${{ inputs.image }}" \
+            "${k8s_clusters}" \
+            "${{ inputs.k8s-deployment-name }}" \
+            "${{ inputs.k8s-service-name }}" \
+            "${{ inputs.k8s-namespace }}"

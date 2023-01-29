@@ -1,0 +1,172 @@
+# GitHub reusable workflow for building and testing a local Dockerfile to Google
+# Container Registry or Google Artifact Registry.
+
+on:
+  workflow_call:
+    inputs:
+      project-id:
+        description: ID of the GCP project where the container should be pushed to
+        required: true
+        type: string
+      region-zone:
+        description: Region zone of the GCP resources
+        required: true
+        type: string
+      environment:
+        description: Environment
+        required: true
+        type: string
+      registry:
+        description: Registry path (i.e. `gcr.io` for GCR or `<location>-docker.pkg.dev` for GAR)
+        required: true
+        type: string
+      workload-identity-provider:
+        description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
+        required: true
+        type: string
+      service-account:
+        description: GCP service account to impersonate by this Workload Identity
+        required: true
+        type: string
+      image-name:
+        description: Docker image name
+        required: true
+        type: string
+      image-tag-suffix:
+        description: Docker image tag suffix
+        required: false
+        type: string
+      sentry-org:
+        description: Sentry organization slug
+        required: false
+        type: string
+      sentry-project:
+        description: Sentry project slug
+        required: false
+        type: string
+      push:
+        description: Specifies if the built image should be pushed to the registry
+        required: true
+        type: boolean
+      tests:
+        description: Specifies if tests should run
+        required: true
+        type: boolean
+    outputs:
+      version:
+        description: The built Docker image
+        value: ${{ jobs.build.outputs.image }}
+    secrets:
+      gh-access-token:
+        description: GitHub access token for accessing private repositories
+        required: true
+      sentry-auth-token:
+        description: Sentry authentication token
+        required: false
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    outputs:
+      image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          token: ${{ secrets.gh-access-token }}
+      - name: Authenticate Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          token_format: access_token
+          workload_identity_provider: ${{ inputs.workload-identity-provider }}
+          service_account: ${{ inputs.service-account }}
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+      - name: Login to GCR
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ inputs.registry }}
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+      - name: Set env
+        id: env
+        run: |-
+          echo "build_number=$(echo ${GITHUB_SHA:-$(git rev-parse HEAD)} | head -c7)" >> $GITHUB_OUTPUT
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Build test target
+        if: ${{ inputs.tests }}
+        uses: docker/build-push-action@v3
+        with:
+          cache-from: type=gha,scope=${{ github.workflow }}
+          cache-to: type=gha,scope=${{ github.workflow }},mode=max
+          context: .
+          load: true
+          secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
+          tags: ${{ inputs.image-name }}:test
+          target: test
+      - name: Run tests
+        if: ${{ inputs.tests }}
+        run: make run target=test name=${{ inputs.image-name }} tag=test
+      - name: Build prod target
+        uses: docker/build-push-action@v2
+        with:
+          build-args: BUILD_NUMBER=${{ steps.env.outputs.build_number }}
+          cache-from: type=gha,scope=${{ github.workflow }}
+          cache-to: type=gha,scope=${{ github.workflow }},mode=max
+          context: .
+          load: true
+          secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
+          tags: ${{ inputs.image-name }}:prod
+          target: prod
+      - name: Set metadata
+        if: ${{ inputs.push }}
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ inputs.image-name }}
+          tags: |
+            type=ref,event=pr,suffix=${{ inputs.image-tag-suffix }}
+            type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
+            type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
+            type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
+      - name: Build and push release target
+        if: ${{ inputs.push }}
+        uses: docker/build-push-action@v2
+        with:
+          build-args: BUILD_NUMBER=${{ steps.env.outputs.build_number }}
+          cache-from: type=gha,scope=${{ github.workflow }}
+          cache-to: type=gha,scope=${{ github.workflow }},mode=max
+          context: .
+          labels: ${{ steps.meta.outputs.labels }}
+          push: true
+          secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
+          tags: ${{ steps.meta.outputs.tags }}
+          target: release
+      - name: Copy built files to local filesystem
+        if: ${{ inputs.push && secrets.sentry-auth-token != '' && inputs.sentry-org != '' }}
+        run: |-
+          sh scripts/copy_from_image.sh \
+            "${{ inputs.image-name }}:prod" \
+            "/var/app/build/" \
+            "${PWD}/build"
+      - name: Create Sentry release
+        if: ${{ inputs.push && secrets.sentry-auth-token != '' && inputs.sentry-org != '' && inputs.sentry-project != '' }}
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.sentry-auth-token }}
+          SENTRY_ORG: ${{ inputs.sentry-org }}
+          SENTRY_PROJECT: ${{ inputs.sentry-project }}
+        with:
+          environment: ${{ inputs.environment }}
+          set_commits: skip
+          sourcemaps: ./build
+          version: ${{ steps.env.outputs.build_number }}
+      - name: Write results to summary
+        if: ${{ inputs.push }}
+        run: |-
+          echo "Image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}" >> $GITHUB_STEP_SUMMARY
