@@ -13,7 +13,7 @@ on:
         required: true
         type: string
       environment:
-        description: Environment
+        description: Build and deploy environment (i.e. for GitHub deployment, Sentry release, etc.)
         required: true
         type: string
       registry:
@@ -29,7 +29,7 @@ on:
         required: true
         type: string
       image-name:
-        description: Docker image name
+        description: Docker image base name (excluding the GCP project ID and registry)
         required: true
         type: string
       image-tag-suffix:
@@ -44,11 +44,11 @@ on:
         description: Sentry project slug
         required: false
         type: string
-      release:
+      create-release:
         default: false
         description: Specifies if pushing release to registry
         type: boolean
-      skip_tests:
+      skip-tests:
         default: false
         description: Specifies if tests should run
         type: boolean
@@ -69,6 +69,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
+    env:
+      IMAGE_NAME: ${{ inputs.registry }}/${{ inputs.project-id }}/${{ inputs.image-name }}
     outputs:
       image: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
     steps:
@@ -100,7 +102,7 @@ jobs:
           password: ${{ steps.auth.outputs.access_token }}
       - name: Build test target
         id: build-test
-        if: ${{ !inputs.skip_tests }}
+        if: ${{ !inputs.skip-tests }}
         uses: docker/build-push-action@v3
         with:
           cache-from: type=gha,scope=${{ github.workflow }}
@@ -108,11 +110,11 @@ jobs:
           context: .
           load: true
           secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
-          tags: ${{ inputs.image-name }}:test
+          tags: ${{ env.IMAGE_NAME }}:test
           target: test
       # - name: Run tests
-      #   if: ${{ !inputs.skip_tests }}
-      #   run: make run target=test name=${{ inputs.image-name }} tag=test
+      #   if: ${{ !inputs.skip-tests }}
+      #   run: make run target=test name=${{ env.IMAGE_NAME }} tag=test
       - name: Build prod target
         id: build-prod
         uses: docker/build-push-action@v2
@@ -123,13 +125,13 @@ jobs:
           context: .
           load: true
           secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
-          tags: ${{ inputs.image-name }}:prod
+          tags: ${{ env.IMAGE_NAME }}:prod
           target: prod
       - name: Set metadata
         id: metadata
         uses: docker/metadata-action@v4
         with:
-          images: ${{ inputs.image-name }}
+          images: ${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=pr,suffix=${{ inputs.image-tag-suffix }}
             type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
@@ -137,7 +139,7 @@ jobs:
             type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
       - name: Create GCR release
         uses: docker/build-push-action@v2
-        if: ${{ inputs.release }}
+        if: ${{ inputs.create-release }}
         with:
           build-args: BUILD_NUMBER=${{ steps.env.outputs.build_number }}
           cache-from: type=gha,scope=${{ github.workflow }}
@@ -149,20 +151,21 @@ jobs:
           tags: ${{ steps.metadata.outputs.tags }}
           target: release
       - name: Copy built files to local filesystem
-        if: ${{ inputs.release && inputs.sentry-org && inputs.sentry-project }}
+        if: ${{ inputs.create-release && inputs.sentry-org && inputs.sentry-project }}
+        env:
+          IMAGE: ${{ env.IMAGE_NAME }}:prod
         run: |-
-          image="${{ inputs.image-name }}:prod"
           from_path="/var/app/build/"
           to_path="${PWD}/build"
           process_name="tmp"
 
-          echo "Copying files from ${image}... from=${from_path}, to=${to_path}"
+          echo "Copying files from ${IMAGE}... from=${from_path}, to=${to_path}"
 
-          docker run -td --rm --name $process_name $image
+          docker run -td --rm --name $process_name $IMAGE
           docker cp $process_name:$from_path $to_path
           docker stop $process_name
 
-          echo "Copying files from ${image}... OK"
+          echo "Copying files from ${IMAGE}... OK"
       - name: Create Sentry release
         if: ${{ inputs.push && inputs.sentry-org && inputs.sentry-project }}
         uses: getsentry/action-release@v1

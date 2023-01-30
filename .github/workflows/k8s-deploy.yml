@@ -13,7 +13,7 @@ on:
         required: true
         type: string
       environment:
-        description: GitHub deployment environment
+        description: Build and deploy environment (i.e. for GitHub deployment, Sentry release, etc.)
         required: false
         type: string
       image:
@@ -22,10 +22,6 @@ on:
         type: string
       cluster-service-label:
         description: '`service` label for matching GKE clusters'
-        required: true
-        type: string
-      cluster-environment-label:
-        description: '`environment` label for m atching GKE clusters'
         required: true
         type: string
       k8s-namespace:
@@ -79,7 +75,7 @@ jobs:
           PROJECT_ID: ${{ inputs.project-id }}
           REGION_ZONE: ${{ inputs.region-zone }}
           SERVICE_LABEL: ${{ inputs.cluster-service-label}}
-          ENVIRONMENT_LABEL: ${{ inputs.cluster-environment-label}}
+          ENVIRONMENT_LABEL: ${{ inputs.environment}}
           IMAGE: ${{ inputs.image }}
           K8S_NAMESPACE: ${{ inputs.k8s-namespace }}
           K8S_APP_NAME: ${{ inputs.k8s-app-name }}
