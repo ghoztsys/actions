@@ -20,12 +20,16 @@ on:
         description: Docker image to deploy
         required: true
         type: string
+      cluster-service-label:
+        description: '`service` label for matching GKE clusters'
+        required: true
+        type: string
       k8s-namespace:
         description: Kubernetes namespace in the GKE cluster to deploy to.
         required: false
         type: string
-      k8s-service-name:
-        description: Kubernetes service to deploy to in the GKE cluster.
+      k8s-app-name:
+        description: Kubernetes app name used as the container label.
         required: true
         type: string
       k8s-deployment-name:
@@ -61,20 +65,15 @@ jobs:
           service_account: ${{ inputs.service-account }}
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
-      - name: Set env
-        id: env
-        run: |-
-          gcloud --quiet config set project ${{ inputs.project-id }}
-          gcloud --quiet config set compute/zone ${{ inputs.region-zone }}
       - name: Deploy containers
         run: |-
           k8s_clusters = $(sh scripts/get_gke_clusters.sh \
-            ${{ inputs.k8s-service-name }} \
+            ${{ inputs.cluster-service-label }} \
             ${{ inputs.environment }} \
           )
           sh scripts/deploy_gke_clusters.sh \
             "${{ inputs.image }}" \
             "${k8s_clusters}" \
             "${{ inputs.k8s-deployment-name }}" \
-            "${{ inputs.k8s-service-name }}" \
+            "${{ inputs.k8s-app-name }}" \
             "${{ inputs.k8s-namespace }}"

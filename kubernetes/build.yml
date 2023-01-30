@@ -148,7 +148,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           target: release
       - name: Copy built files to local filesystem
-        if: ${{ inputs.push && secrets.sentry-auth-token != '' && inputs.sentry-org != '' }}
+        if: ${{ inputs.push && secrets.sentry-auth-token != '' && inputs.sentry-org != '' && inputs.sentry-project != '' }}
         run: |-
           sh scripts/copy_from_image.sh \
             "${{ inputs.image-name }}:prod" \

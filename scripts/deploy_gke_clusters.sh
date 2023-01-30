@@ -1,16 +1,20 @@
 # Deploys the specified image to the specified GKE clusters.
 #
-# @param $1 - The Docker image to deploy.
-# @param $2 - Comma-delimited names of Kubernetes clusters to deploy to.
-# @param $3 - The Kubernetes deployment name.
-# @param $4 - The Kubernetes app name, falls back to $K8S_APP_NAME.
-# @param $5 - The Kubernetes namespace, falls back to `defualt`.
+# @param $1 - ID of the project of which the GKE clusters are hosted.
+# @param $2 - Region zone of the GKE clusters.
+# @param $3 - The Docker image to deploy.
+# @param $4 - Comma-delimited names of Kubernetes clusters to deploy to.
+# @param $5 - The Kubernetes deployment name.
+# @param $6 - The Kubernetes app name, falls back to $K8S_APP_NAME.
+# @param $7 - The Kubernetes namespace, falls back to `defualt`.
 function deploy_gke_clusters {
-  local image=${1}
-  local k8s_clusters=${2}
-  local k8s_deployment_name=${3}
-  local k8s_app_name=${4}
-  local k8s_namespace=${5:-default}
+  local project_id=${1}
+  local region_zone=${2}
+  local image=${3}
+  local k8s_clusters=${4}
+  local k8s_deployment_name=${5}
+  local k8s_app_name=${6}
+  local k8s_namespace=${7:-default}
 
   if [ -z $image ]; then echo "ERROR: No image provided"; exit 1; fi
 
@@ -22,6 +26,8 @@ function deploy_gke_clusters {
       if [ ! -z $k8s_cluster ]; then
         echo -e "Deploying to ${k8s_cluster}... deployment=${k8s_deployment_name}, app=${k8s_app_name}, image=${image}, namespace=${k8s_namespace}"
 
+        # gcloud --quiet config set project $project_id
+        # gcloud --quiet config set compute/zone $region_zone
         gcloud --quiet config set container/cluster $k8s_cluster
         gcloud --quiet container clusters get-credentials $k8s_cluster
         kubectl set image deployment/$k8s_deployment_name $k8s_app_name=$image --namespace=$k8s_namespace
