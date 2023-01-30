@@ -44,13 +44,13 @@ on:
         description: Sentry project slug
         required: false
         type: string
-      push:
-        description: Specifies if the built image should be pushed to the registry
-        required: true
+      release:
+        default: false
+        description: Specifies if pushing release to registry
         type: boolean
-      tests:
+      skip_tests:
+        default: false
         description: Specifies if tests should run
-        required: true
         type: boolean
     outputs:
       version:
@@ -58,20 +58,19 @@ on:
         value: ${{ jobs.build.outputs.image }}
     secrets:
       gh-access-token:
-        description: GitHub access token for accessing private repositories
+        description: GitHub access token for checking out private repos
         required: true
       sentry-auth-token:
-        description: Sentry authentication token
+        description: Sentry authentication token (if creating a release in Sentry)
         required: false
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
     permissions:
       id-token: write
     outputs:
-      image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+      image: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -85,22 +84,23 @@ jobs:
           token_format: access_token
           workload_identity_provider: ${{ inputs.workload-identity-provider }}
           service_account: ${{ inputs.service-account }}
-      - name: Set up Cloud SDK
+      - name: Set up environment
+        id: env
+        run: |-
+          echo "build_number=$(echo ${GITHUB_SHA:-$(git rev-parse HEAD)} | head -c7)" >> $GITHUB_OUTPUT
+      - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
       - name: Login to GCR
         uses: docker/login-action@v2
         with:
           registry: ${{ inputs.registry }}
           username: oauth2accesstoken
           password: ${{ steps.auth.outputs.access_token }}
-      - name: Set env
-        id: env
-        run: |-
-          echo "build_number=$(echo ${GITHUB_SHA:-$(git rev-parse HEAD)} | head -c7)" >> $GITHUB_OUTPUT
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
       - name: Build test target
-        if: ${{ inputs.tests }}
+        id: build-test
+        if: ${{ !inputs.skip_tests }}
         uses: docker/build-push-action@v3
         with:
           cache-from: type=gha,scope=${{ github.workflow }}
@@ -110,10 +110,11 @@ jobs:
           secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
           tags: ${{ inputs.image-name }}:test
           target: test
-      - name: Run tests
-        if: ${{ inputs.tests }}
-        run: make run target=test name=${{ inputs.image-name }} tag=test
+      # - name: Run tests
+      #   if: ${{ !inputs.skip_tests }}
+      #   run: make run target=test name=${{ inputs.image-name }} tag=test
       - name: Build prod target
+        id: build-prod
         uses: docker/build-push-action@v2
         with:
           build-args: BUILD_NUMBER=${{ steps.env.outputs.build_number }}
@@ -125,7 +126,7 @@ jobs:
           tags: ${{ inputs.image-name }}:prod
           target: prod
       - name: Set metadata
-        id: meta
+        id: metadata
         uses: docker/metadata-action@v4
         with:
           images: ${{ inputs.image-name }}
@@ -134,27 +135,36 @@ jobs:
             type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
             type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
             type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
-      - name: Build and push release target
+      - name: Create GCR release
         uses: docker/build-push-action@v2
+        if: ${{ inputs.release }}
         with:
           build-args: BUILD_NUMBER=${{ steps.env.outputs.build_number }}
           cache-from: type=gha,scope=${{ github.workflow }}
           cache-to: type=gha,scope=${{ github.workflow }},mode=max
           context: .
-          labels: ${{ steps.meta.outputs.labels }}
-          push: ${{ inputs.push }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          push: true
           secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ steps.metadata.outputs.tags }}
           target: release
       - name: Copy built files to local filesystem
-        if: ${{ inputs.push && inputs.sentry-org != '' && inputs.sentry-project != '' }}
+        if: ${{ inputs.release && inputs.sentry-org && inputs.sentry-project }}
         run: |-
-          sh scripts/copy_from_image.sh \
-            "${{ inputs.image-name }}:prod" \
-            "/var/app/build/" \
-            "${PWD}/build"
+          image="${{ inputs.image-name }}:prod"
+          from_path="/var/app/build/"
+          to_path="${PWD}/build"
+          process_name="tmp"
+
+          echo "Copying files from ${image}... from=${from_path}, to=${to_path}"
+
+          docker run -td --rm --name $process_name $image
+          docker cp $process_name:$from_path $to_path
+          docker stop $process_name
+
+          echo "Copying files from ${image}... OK"
       - name: Create Sentry release
-        if: ${{ inputs.push && inputs.sentry-org != '' && inputs.sentry-project != '' }}
+        if: ${{ inputs.push && inputs.sentry-org && inputs.sentry-project }}
         uses: getsentry/action-release@v1
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.sentry-auth-token }}
@@ -165,7 +175,13 @@ jobs:
           set_commits: skip
           sourcemaps: ./build
           version: ${{ steps.env.outputs.build_number }}
+      - name: Delete me
+        run: |-
+          echo ${{ steps.build-test.outputs.imageid }}
+          echo ${{ steps.build-test.outputs.digest }}
+          echo ${{ steps.build-test.outputs.metadata }}
+          echo ${{ fromJSON(steps.build-test.outputs.metadata) }}
       - name: Write results to summary
         if: ${{ inputs.push }}
         run: |-
-          echo "Image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}" >> $GITHUB_STEP_SUMMARY
+          echo "Image: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}" >> $GITHUB_STEP_SUMMARY

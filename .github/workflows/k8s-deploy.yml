@@ -13,8 +13,8 @@ on:
         required: true
         type: string
       environment:
-        description: Environment
-        required: true
+        description: GitHub deployment environment
+        required: false
         type: string
       image:
         description: Docker image to deploy
@@ -22,6 +22,10 @@ on:
         type: string
       cluster-service-label:
         description: '`service` label for matching GKE clusters'
+        required: true
+        type: string
+      cluster-environment-label:
+        description: '`environment` label for m atching GKE clusters'
         required: true
         type: string
       k8s-namespace:
@@ -54,6 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
+    environment: ${{ inputs.environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -67,17 +72,44 @@ jobs:
           token_format: access_token
           workload_identity_provider: ${{ inputs.workload-identity-provider }}
           service_account: ${{ inputs.service-account }}
-      - name: Set up Cloud SDK
+      - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
-      - name: Deploy containers
+      - name: Update clusters
+        env:
+          PROJECT_ID: ${{ inputs.project-id }}
+          REGION_ZONE: ${{ inputs.region-zone }}
+          SERVICE_LABEL: ${{ inputs.cluster-service-label}}
+          ENVIRONMENT_LABEL: ${{ inputs.cluster-environment-label}}
+          IMAGE: ${{ inputs.image }}
+          K8S_NAMESPACE: ${{ inputs.k8s-namespace }}
+          K8S_APP_NAME: ${{ inputs.k8s-app-name }}
+          K8S_DEPLOYMENT_NAME: ${{ inputs.k8s-deployment-name }}
         run: |-
-          k8s_clusters = $(sh scripts/get_gke_clusters.sh \
-            ${{ inputs.cluster-service-label }} \
-            ${{ inputs.environment }} \
-          )
-          sh scripts/deploy_gke_clusters.sh \
-            "${{ inputs.image }}" \
-            "${k8s_clusters}" \
-            "${{ inputs.k8s-deployment-name }}" \
-            "${{ inputs.k8s-app-name }}" \
-            "${{ inputs.k8s-namespace }}"
+          clusters=$(gcloud container clusters list \
+            --project=$PROJECT_ID \
+            --zone=$REGION_ZONE \
+            --filter="nodeConfig.labels.service=${SERVICE_LABEL} AND nodeConfig.labels.environment=${ENVIRONMENT_LABEL}" \
+            | awk 'NR >= 2 {print $1}' \
+            | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')
+
+          echo "GKE clusters: ${clusters}" >> $GITHUB_STEP_SUMMARY
+          echo "Preparing to deploy ${IMAGE} to Kubernetes cluster(s)..."
+
+          if [ ! -z $clusters ]; then
+            for cluster in $(echo $clusters | sed "s/,/ /g")
+            do
+              if [ ! -z $cluster ]; then
+                echo -e "Deploying to ${cluster}... deployment=${K8S_DEPLOYMENT_NAME}, app=${K8S_APP_NAME}, image=${IMAGE}, namespace=${K8S_NAMESPACE}"
+
+                # gcloud --quiet config set project $PROJECT_ID
+                # gcloud --quiet config set compute/zone $REGION_ZONE
+                gcloud --quiet config set container/cluster $cluster
+                gcloud --quiet container clusters get-credentials $cluster
+                kubectl set image deployment/$K8S_DEPLOYMENT_NAME $K8S_APP_NAME=$IMAGE --namespace=$K8S_NAMESPACE
+
+                echo -e "Deploying to ${cluster}... OK"
+              fi
+            done
+          else
+            echo -e "No Kubernetes cluster(s) provided, skipping operation"
+          fi
