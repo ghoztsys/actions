@@ -25,7 +25,7 @@ on:
         required: true
         type: string
       service-account:
-        description: GCP service account to impersonate by this Workload Identity
+        description: GCP service account to impersonate by the current Workload Identity
         required: true
         type: string
       image-name:
@@ -112,9 +112,9 @@ jobs:
           secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
           tags: ${{ env.IMAGE_NAME }}:test
           target: test
-      # - name: Run tests
-      #   if: ${{ !inputs.skip-tests }}
-      #   run: make run target=test name=${{ env.IMAGE_NAME }} tag=test
+      - name: Run tests
+        if: ${{ !inputs.skip-tests }}
+        run: make run target=test name=${{ env.IMAGE_NAME }} tag=test
       - name: Build prod target
         id: build-prod
         uses: docker/build-push-action@v2
@@ -180,10 +180,8 @@ jobs:
           version: ${{ steps.env.outputs.build_number }}
       - name: Delete me
         run: |-
-          echo ${{ steps.build-test.outputs.imageid }}
-          echo ${{ steps.build-test.outputs.digest }}
           echo ${{ steps.build-test.outputs.metadata }}
-          echo ${{ fromJSON(steps.build-test.outputs.metadata) }}
+          echo ${{ fromJSON(steps.build-test.outputs.metadata).image.name }}
       - name: Write results to summary
         if: ${{ inputs.push }}
         run: |-
