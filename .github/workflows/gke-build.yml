@@ -116,7 +116,9 @@ jobs:
         run: |-
           echo ${{ steps.build-test.outputs.metadata }}
           echo ${{ steps.build-test.outputs.metadata.image.name }}
-          echo ${{ fromJSON(steps.build-test.outputs.metadata).image.name }}
+          echo ${{ fromJSON(steps.build-test.outputs.metadata) }}
+          echo ${{ fromJSON(steps.build-test.outputs.metadata).image }}
+          echo ${{ fromJSON(steps.build-test.outputs.metadata)['image.name'] }}
       - name: Run tests
         if: ${{ !inputs.skip-tests }}
         run: make run target=test image=${{ fromJSON(steps.build-test.outputs.metadata).image.name }}
