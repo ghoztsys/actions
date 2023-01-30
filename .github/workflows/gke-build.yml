@@ -114,7 +114,7 @@ jobs:
           target: test
       - name: Run tests
         if: ${{ !inputs.skip-tests }}
-        run: make run target=test name=${{ env.IMAGE_NAME }} tag=test
+        run: make run target=test image=${{ fromJSON(steps.build-test.outputs.metadata).image.name }}
       - name: Build prod target
         id: build-prod
         uses: docker/build-push-action@v2
@@ -153,7 +153,7 @@ jobs:
       - name: Copy built files to local filesystem
         if: ${{ inputs.create-release && inputs.sentry-org && inputs.sentry-project }}
         env:
-          IMAGE: ${{ env.IMAGE_NAME }}:prod
+          IMAGE: ${{ fromJSON(steps.build-prod.outputs.metadata).image.name }}
         run: |-
           from_path="/var/app/build/"
           to_path="${PWD}/build"
@@ -178,10 +178,6 @@ jobs:
           set_commits: skip
           sourcemaps: ./build
           version: ${{ steps.env.outputs.build_number }}
-      - name: Delete me
-        run: |-
-          echo ${{ steps.build-test.outputs.metadata }}
-          echo ${{ fromJSON(steps.build-test.outputs.metadata).image.name }}
       - name: Write results to summary
         if: ${{ inputs.push }}
         run: |-
