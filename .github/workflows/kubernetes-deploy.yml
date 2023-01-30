@@ -80,6 +80,7 @@ jobs:
           K8S_NAMESPACE: ${{ inputs.k8s-namespace }}
           K8S_APP_NAME: ${{ inputs.k8s-app-name }}
           K8S_DEPLOYMENT_NAME: ${{ inputs.k8s-deployment-name }}
+          USE_GKE_GCLOUD_AUTH_PLUGIN: True
         run: |-
           clusters=$(gcloud container clusters list \
             --project=$PROJECT_ID \

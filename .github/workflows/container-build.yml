@@ -6,11 +6,11 @@ on:
     inputs:
       project-id:
         description: ID of the GCP project where the container should be pushed to
-        required: true
+        required: false
         type: string
       environment:
+        default: development
         description: Build and deploy environment (i.e. for GitHub deployment, Sentry release, etc.)
-        required: true
         type: string
       registry:
         description: Registry path (i.e. `gcr.io` for GCR or `<location>-docker.pkg.dev` for GAR)
@@ -66,7 +66,7 @@ jobs:
     permissions:
       id-token: write
     env:
-      IMAGE_NAME: ${{ inputs.registry }}/${{ inputs.project-id }}/${{ inputs.image-name }}
+      IMAGE_NAME: ${{ inputs.registry }}/${{ inputs.project-id && "${{ inputs.project-id }}/" || "" }}${{ inputs.image-name }}
     outputs:
       image: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
     steps:
