@@ -1,0 +1,28 @@
+# GitHub reusable workflow for building and testing a local Dockerfile to Google
+# Container Registry or Google Artifact Registry.
+
+on:
+  workflow_call:
+    inputs:
+      project-id:
+        required: true
+        type: string
+      environment:
+        required: true
+        type: string
+    secrets:
+      sentry-auth-token:
+        required: false
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Test
+        run: |-
+          echo ${{ inputs.environment }}, ${{ inputs.environment == '' }}
+          echo ${{ vars.PROJECT_ID }}, ${{ vars.PROJECT_ID == '' }}
+          echo ${{ inputs.project-id }}, ${{ inputs.project-id == '' }}
+          echo ${{ secrets.sentry-auth-token }}, ${{ secrets.sentry-auth-token == '' }}
+          sh scripts/foo.sh

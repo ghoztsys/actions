@@ -67,6 +67,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     permissions:
       id-token: write
     outputs:
