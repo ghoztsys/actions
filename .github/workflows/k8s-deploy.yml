@@ -44,6 +44,10 @@ on:
         description: GCP service account to impersonate by this Workload Identity
         required: true
         type: string
+    secrets:
+      gh-access-token:
+        description: GitHub access token for accessing private repositories
+        required: true
 jobs:
   deploy:
     name: Deploy
@@ -55,7 +59,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
-          token: ${{ secrets.GH_ACCESS_TOKEN }}
+          token: ${{ secrets.gh-access-token }}
       - name: Authenticate Google Cloud
         id: auth
         uses: google-github-actions/auth@v1
