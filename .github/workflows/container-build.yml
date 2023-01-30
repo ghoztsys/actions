@@ -5,7 +5,7 @@ on:
   workflow_call:
     inputs:
       project-id:
-        description: ID of the GCP project where the container should be pushed to
+        description: ID of the GCP project where the container should be pushed to (required if `create-release`` is `true`)
         required: false
         type: string
       environment:
@@ -13,8 +13,8 @@ on:
         description: Build and deploy environment (i.e. for GitHub deployment, Sentry release, etc.)
         type: string
       registry:
-        description: Registry path (i.e. `gcr.io` for GCR or `<location>-docker.pkg.dev` for GAR)
-        required: true
+        description: Registry path (required if `create-release` is `true`, i.e. `gcr.io` for GCR or `<location>-docker.pkg.dev` for GAR)
+        required: false
         type: string
       workload-identity-provider:
         description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
@@ -66,7 +66,7 @@ jobs:
     permissions:
       id-token: write
     env:
-      IMAGE_NAME: ${{ inputs.registry }}/${{ inputs.project-id && "${{ inputs.project-id }}/" || "" }}${{ inputs.image-name }}
+      IMAGE_NAME: ${{ inputs.registry && "${{ inputs.registry }}/" || "" }}${{ inputs.project-id && "${{ inputs.project-id }}/" || "" }}${{ inputs.image-name }}
     outputs:
       image: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
     steps:
@@ -89,6 +89,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       - name: Authenticate Docker registry
+        if: ${{ inputs.registry }}
         uses: docker/login-action@v2
         with:
           registry: ${{ inputs.registry }}
@@ -133,7 +134,7 @@ jobs:
             type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
       - name: Create GCR release
         uses: docker/build-push-action@v4
-        if: ${{ inputs.create-release }}
+        if: ${{ inputs.registry && inputs.create-release }}
         with:
           build-args: BUILD_NUMBER=${{ steps.env.outputs.build_number }}
           cache-from: type=gha,scope=${{ github.workflow }}
@@ -145,7 +146,7 @@ jobs:
           tags: ${{ steps.metadata.outputs.tags }}
           target: release
       - name: Copy artifacts
-        if: ${{ inputs.create-release && inputs.sentry-org && inputs.sentry-project }}
+        if: ${{ inputs.registry && inputs.create-release && inputs.sentry-org && inputs.sentry-project }}
         env:
           IMAGE: ${{ fromJSON(steps.build-prod.outputs.metadata)['image.name'] }}
         run: |-
