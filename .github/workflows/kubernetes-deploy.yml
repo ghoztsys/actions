@@ -50,7 +50,7 @@ on:
         required: true
 jobs:
   deploy:
-    name: GKE
+    name: Kubernetes
     runs-on: ubuntu-latest
     permissions:
       id-token: write
