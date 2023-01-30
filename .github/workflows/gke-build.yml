@@ -8,10 +8,6 @@ on:
         description: ID of the GCP project where the container should be pushed to
         required: true
         type: string
-      region-zone:
-        description: Region zone of the GCP resources
-        required: true
-        type: string
       environment:
         description: Build and deploy environment (i.e. for GitHub deployment, Sentry release, etc.)
         required: true
@@ -103,7 +99,7 @@ jobs:
       - name: Build test target
         id: build-test
         if: ${{ !inputs.skip-tests }}
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v4
         with:
           cache-from: type=gha,scope=${{ github.workflow }}
           cache-to: type=gha,scope=${{ github.workflow }},mode=max
@@ -117,7 +113,7 @@ jobs:
         run: make run target=test image=${{ fromJSON(steps.build-test.outputs.metadata)['image.name'] }}
       - name: Build prod target
         id: build-prod
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v4
         with:
           build-args: BUILD_NUMBER=${{ steps.env.outputs.build_number }}
           cache-from: type=gha,scope=${{ github.workflow }}
@@ -138,7 +134,7 @@ jobs:
             type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
             type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
       - name: Create GCR release
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v4
         if: ${{ inputs.create-release }}
         with:
           build-args: BUILD_NUMBER=${{ steps.env.outputs.build_number }}
