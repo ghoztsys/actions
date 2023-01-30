@@ -37,7 +37,7 @@ jobs:
           sh scripts/foo.sh
   c:
     name: C
-    uses: ./.github/workflows/test2-build.yml
+    uses: .github/workflows/test2-build.yml
   b:
     name: B
     runs-on: ubuntu-latest
