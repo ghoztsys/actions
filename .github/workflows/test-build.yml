@@ -14,8 +14,8 @@ on:
       sentry-auth-token:
         required: false
 jobs:
-  build:
-    name: Build
+  a:
+    name: A
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
@@ -25,5 +25,13 @@ jobs:
           echo ${{ vars.GCP_PROJECT }}, ${{ vars.GCP_PROJECT == '' }}
           echo ${{ inputs.project-id }}, ${{ inputs.project-id == '' }}
           echo ${{ secrets.sentry-auth-token }}, ${{ secrets.sentry-auth-token == '' }}
-          ls -la
+          pwd
           sh scripts/foo.sh
+  b:
+    name: B
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Test
+        run: |-
+          echo "HELLO, WORLD"
