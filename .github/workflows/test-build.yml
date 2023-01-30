@@ -25,4 +25,5 @@ jobs:
           echo ${{ vars.PROJECT_ID }}, ${{ vars.PROJECT_ID == '' }}
           echo ${{ inputs.project-id }}, ${{ inputs.project-id == '' }}
           echo ${{ secrets.sentry-auth-token }}, ${{ secrets.sentry-auth-token == '' }}
+          ls -la
           sh scripts/foo.sh
