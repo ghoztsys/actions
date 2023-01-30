@@ -49,7 +49,7 @@ on:
         description: Specifies if tests should run
         type: boolean
     outputs:
-      version:
+      image:
         description: The built Docker image
         value: ${{ jobs.build.outputs.image }}
     secrets:
@@ -61,7 +61,7 @@ on:
         required: false
 jobs:
   build:
-    name: Build
+    name: GAR
     runs-on: ubuntu-latest
     permissions:
       id-token: write
