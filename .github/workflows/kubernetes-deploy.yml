@@ -88,8 +88,8 @@ jobs:
             | awk 'NR >= 2 {print $1}' \
             | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')
 
-          echo "GKE clusters: ${clusters}" >> $GITHUB_STEP_SUMMARY
           echo "Preparing to deploy ${IMAGE} to Kubernetes cluster(s)..."
+          echo "Matched Kubernetes clusters: $clusters" >> $GITHUB_STEP_SUMMARY
 
           if [ ! -z $clusters ]; then
             for cluster in $(echo $clusters | sed "s/,/ /g")
@@ -97,11 +97,11 @@ jobs:
               if [ ! -z $cluster ]; then
                 echo -e "Deploying to ${cluster}... deployment=${K8S_DEPLOYMENT_NAME}, app=${K8S_APP_NAME}, image=${IMAGE}, namespace=${K8S_NAMESPACE}"
 
-                gcloud --quiet config set container/cluster $cluster
-                gcloud --quiet container clusters get-credentials $cluster
+                gcloud --quiet container clusters get-credentials $cluster --project=$PROJECT_ID --zone=$REGION_ZONE
                 kubectl set image deployment/$K8S_DEPLOYMENT_NAME $K8S_APP_NAME=$IMAGE --namespace=$K8S_NAMESPACE
 
                 echo -e "Deploying to ${cluster}... OK"
+                echo "Successfully deployed image ${IMAGE} to cluster ${cluster}" >> $GITHUB_STEP_SUMMARY
               fi
             done
           else

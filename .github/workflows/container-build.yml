@@ -90,7 +90,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      - name: Login to GCR
+      - name: Authenticate Docker registry
         uses: docker/login-action@v2
         with:
           registry: ${{ inputs.registry }}
@@ -123,7 +123,7 @@ jobs:
           secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
           tags: ${{ env.IMAGE_NAME }}:prod
           target: prod
-      - name: Set metadata
+      - name: Set up release metadata
         id: metadata
         uses: docker/metadata-action@v4
         with:
@@ -146,7 +146,7 @@ jobs:
           secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
           tags: ${{ steps.metadata.outputs.tags }}
           target: release
-      - name: Copy built files to local filesystem
+      - name: Copy artifacts
         if: ${{ inputs.create-release && inputs.sentry-org && inputs.sentry-project }}
         env:
           IMAGE: ${{ fromJSON(steps.build-prod.outputs.metadata)['image.name'] }}
@@ -174,6 +174,6 @@ jobs:
           set_commits: skip
           sourcemaps: ./build
           version: ${{ steps.env.outputs.build_number }}
-      - name: Write results to summary
+      - name: Append summary
         run: |-
           echo "Image: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}" >> $GITHUB_STEP_SUMMARY
