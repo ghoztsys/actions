@@ -22,7 +22,7 @@ jobs:
       - name: Test
         run: |-
           echo ${{ inputs.environment }}, ${{ inputs.environment == '' }}
-          echo ${{ vars.PROJECT_ID }}, ${{ vars.PROJECT_ID == '' }}
+          echo ${{ vars.GCP_PROJECT }}, ${{ vars.GCP_PROJECT == '' }}
           echo ${{ inputs.project-id }}, ${{ inputs.project-id == '' }}
           echo ${{ secrets.sentry-auth-token }}, ${{ secrets.sentry-auth-token == '' }}
           ls -la
