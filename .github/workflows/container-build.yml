@@ -18,11 +18,11 @@ on:
         type: string
       workload-identity-provider:
         description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
-        required: true
+        required: false
         type: string
       service-account:
         description: GCP service account to impersonate by the current Workload Identity
-        required: true
+        required: false
         type: string
       image-name:
         description: Docker image base name (excluding the GCP project ID and registry)
@@ -75,19 +75,20 @@ jobs:
         with:
           submodules: recursive
           token: ${{ secrets.gh-access-token }}
-      - name: Authenticate Google Cloud
-        id: auth
-        uses: google-github-actions/auth@v1
-        with:
-          token_format: access_token
-          workload_identity_provider: ${{ inputs.workload-identity-provider }}
-          service_account: ${{ inputs.service-account }}
       - name: Set up environment
         id: env
         run: |-
           echo "build_number=$(echo ${GITHUB_SHA:-$(git rev-parse HEAD)} | head -c7)" >> $GITHUB_OUTPUT
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
+      - name: Authenticate Google Cloud
+        id: auth
+        if: ${{ inputs.workload-identity-provider && inputs.service-account }}
+        uses: google-github-actions/auth@v1
+        with:
+          token_format: access_token
+          workload_identity_provider: ${{ inputs.workload-identity-provider }}
+          service_account: ${{ inputs.service-account }}
       - name: Authenticate Docker registry
         if: ${{ inputs.registry }}
         uses: docker/login-action@v2
@@ -134,7 +135,7 @@ jobs:
             type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
       - name: Create GCR release
         uses: docker/build-push-action@v4
-        if: ${{ inputs.registry && inputs.create-release }}
+        if: ${{ inputs.create-release }}
         with:
           build-args: BUILD_NUMBER=${{ steps.env.outputs.build_number }}
           cache-from: type=gha,scope=${{ github.workflow }}
@@ -146,7 +147,7 @@ jobs:
           tags: ${{ steps.metadata.outputs.tags }}
           target: release
       - name: Copy artifacts
-        if: ${{ inputs.registry && inputs.create-release && inputs.sentry-org && inputs.sentry-project }}
+        if: ${{ inputs.create-release && inputs.sentry-project }}
         env:
           IMAGE: ${{ fromJSON(steps.build-prod.outputs.metadata)['image.name'] }}
         run: |-
@@ -162,7 +163,7 @@ jobs:
 
           echo "Copying files from ${IMAGE}... OK"
       - name: Create Sentry release
-        if: ${{ inputs.push && inputs.sentry-org && inputs.sentry-project }}
+        if: ${{ inputs.create-release && inputs.sentry-project }}
         uses: getsentry/action-release@v1
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.sentry-auth-token }}
