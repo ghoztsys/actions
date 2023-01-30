@@ -39,6 +39,7 @@ jobs:
     name: B
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    if: ${{ inputs.environment }}
     steps:
       - name: Test
         run: |-
