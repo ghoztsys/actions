@@ -112,6 +112,11 @@ jobs:
           secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
           tags: ${{ env.IMAGE_NAME }}:test
           target: test
+      - name: Foo
+        run: |-
+          echo ${{ steps.build-test.outputs.metadata }}
+          echo ${{ steps.build-test.outputs.metadata.image.name }}
+          echo ${{ fromJSON(steps.build-test.outputs.metadata).image.name }}
       - name: Run tests
         if: ${{ !inputs.skip-tests }}
         run: make run target=test image=${{ fromJSON(steps.build-test.outputs.metadata).image.name }}
@@ -179,6 +184,5 @@ jobs:
           sourcemaps: ./build
           version: ${{ steps.env.outputs.build_number }}
       - name: Write results to summary
-        if: ${{ inputs.push }}
         run: |-
           echo "Image: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}" >> $GITHUB_STEP_SUMMARY
