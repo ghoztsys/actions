@@ -97,7 +97,7 @@ jobs:
               if [ ! -z $cluster ]; then
                 echo -e "Deploying to ${cluster}... deployment=${K8S_DEPLOYMENT_NAME}, app=${K8S_APP_NAME}, image=${IMAGE}, namespace=${K8S_NAMESPACE}"
 
-                gcloud --quiet container clusters get-credentials $cluster --project=$PROJECT_ID --zone=$REGION_ZONE
+                gcloud container clusters get-credentials $cluster --project=$PROJECT_ID --zone=$REGION_ZONE --quiet
                 kubectl set image deployment/$K8S_DEPLOYMENT_NAME $K8S_APP_NAME=$IMAGE --namespace=$K8S_NAMESPACE
 
                 echo -e "Deploying to ${cluster}... OK"

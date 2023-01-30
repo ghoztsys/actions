@@ -86,8 +86,6 @@ jobs:
         id: env
         run: |-
           echo "build_number=$(echo ${GITHUB_SHA:-$(git rev-parse HEAD)} | head -c7)" >> $GITHUB_OUTPUT
-      - name: Set up Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       - name: Authenticate Docker registry
