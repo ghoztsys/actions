@@ -35,6 +35,9 @@ jobs:
           echo ${{ secrets.sentry-auth-token }}, ${{ secrets.sentry-auth-token == '' }}
           pwd
           sh scripts/foo.sh
+  c:
+    name: C
+    uses: ./.github/workflows/test2-build.yml
   b:
     name: B
     runs-on: ubuntu-latest

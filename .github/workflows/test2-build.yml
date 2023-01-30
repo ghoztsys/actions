@@ -1,0 +1,14 @@
+# GitHub reusable workflow for building and testing a local Dockerfile to Google
+# Container Registry or Google Artifact Registry.
+
+on:
+  workflow_call:
+jobs:
+  c:
+    name: C
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Test
+        run: |-
+          echo "HELLO, WORLD"
