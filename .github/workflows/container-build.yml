@@ -112,7 +112,7 @@ jobs:
         if: ${{ !inputs.skip-tests }}
         run: make run target=test image=${{ fromJSON(steps.build-test.outputs.metadata)['image.name'] }}
       - name: Foo
-        run: ls
+        run: ls -la
       - name: Generate test report
         if: ${{ !inputs.skip-tests }}
         uses: dorny/test-reporter@v1
@@ -189,4 +189,4 @@ jobs:
         run: |-
           echo "Successfully pushed image ${{ fromJSON(steps.metadata.outputs.json).tags[0] }} to Docker registry ${{ inputs.registry }}" >> $GITHUB_STEP_SUMMARY
       - name: Foo
-        run: ls
+        run: ls -la
