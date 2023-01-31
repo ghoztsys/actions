@@ -134,7 +134,7 @@ jobs:
             type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
             type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
             type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
-      - name: Create GCR release
+      - name: Push image release to registry
         uses: docker/build-push-action@v4
         if: ${{ inputs.create-release }}
         with:
