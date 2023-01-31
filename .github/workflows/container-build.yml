@@ -111,6 +111,13 @@ jobs:
       - name: Run tests
         if: ${{ !inputs.skip-tests }}
         run: make run target=test image=${{ fromJSON(steps.build-test.outputs.metadata)['image.name'] }}
+      - name: Generate test report
+        if: ${{ !inputs.skip-tests }}
+        uses: dorny/test-reporter@v1
+        with:
+          name: Tests
+          path: .tmp/test-results.json
+          reporter: mocha-json
       - name: Build prod target
         id: build-prod
         uses: docker/build-push-action@v4
