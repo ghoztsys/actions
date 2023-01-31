@@ -189,7 +189,7 @@ jobs:
         with:
           name: Test Report
           path: ${{ inputs.test-report-path }}
-          reporter: mocha-json
+          reporter: ${{ inputs.test-reporter }}
       - name: Append summary
         if: ${{ inputs.create-release }}
         run: |-
