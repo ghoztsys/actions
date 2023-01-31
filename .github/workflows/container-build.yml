@@ -107,20 +107,11 @@ jobs:
           context: .
           load: true
           secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
-          tags: ${{ env.IMAGE_NAME }}:test
+          tags: ${{ inputs.image-name }}:test
           target: test
       - name: Run tests
         if: ${{ !inputs.skip-tests }}
         run: make run target=test image=${{ fromJSON(steps.build-test.outputs.metadata)['image.name'] }}
-      - name: Foo
-        run: ls -la
-      - name: Generate test report
-        if: ${{ !inputs.skip-tests }}
-        uses: dorny/test-reporter@v1
-        with:
-          name: Tests
-          path: .tmp/test-results.json
-          reporter: mocha-json
       - name: Build prod target
         id: build-prod
         uses: docker/build-push-action@v4
@@ -131,7 +122,7 @@ jobs:
           context: .
           load: true
           secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
-          tags: ${{ env.IMAGE_NAME }}:prod
+          tags: ${{ inputs.image-name }}:prod
           target: prod
       - name: Set up release metadata
         if: ${{ inputs.create-release }}
@@ -156,7 +147,6 @@ jobs:
           push: true
           secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
           tags: ${{ steps.metadata.outputs.tags }}
-          target: release
       - name: Copy artifacts
         if: ${{ inputs.create-release && inputs.sentry-project }}
         env:
@@ -185,9 +175,14 @@ jobs:
           set_commits: skip
           sourcemaps: ./build
           version: ${{ steps.env.outputs.build_number }}
+      - name: Generate test report
+        if: ${{ !inputs.skip-tests }}
+        uses: dorny/test-reporter@v1
+        with:
+          name: Test Report
+          path: .tmp/test-results.json
+          reporter: mocha-json
       - name: Append summary
         if: ${{ inputs.create-release }}
         run: |-
-          echo "Successfully pushed image ${{ fromJSON(steps.metadata.outputs.json).tags[0] }} to Docker registry ${{ inputs.registry }}" >> $GITHUB_STEP_SUMMARY
-      - name: Foo
-        run: ls -la
+          echo "- Successfully pushed image: `${{ fromJSON(steps.metadata.outputs.json).tags[0] }}` to registry `${{ inputs.registry }}`" >> $GITHUB_STEP_SUMMARY

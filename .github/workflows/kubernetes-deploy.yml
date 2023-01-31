@@ -91,7 +91,6 @@ jobs:
             | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')
 
           echo "Preparing to deploy ${IMAGE} to Kubernetes cluster(s)..."
-          echo "Matched Kubernetes clusters: $clusters" >> $GITHUB_STEP_SUMMARY
 
           if [ ! -z $clusters ]; then
             for cluster in $(echo $clusters | sed "s/,/ /g")
@@ -103,7 +102,7 @@ jobs:
                 kubectl set image deployment/$K8S_DEPLOYMENT_NAME $K8S_APP_NAME=$IMAGE --namespace=$K8S_NAMESPACE
 
                 echo -e "Deploying to ${cluster}... OK"
-                echo "Successfully deployed image ${IMAGE} to cluster ${cluster}" >> $GITHUB_STEP_SUMMARY
+                echo "- Successfully deployed image `${IMAGE}` to cluster `${cluster}`" >> $GITHUB_STEP_SUMMARY
               fi
             done
           else
