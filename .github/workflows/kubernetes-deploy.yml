@@ -70,9 +70,11 @@ jobs:
           service_account: ${{ inputs.service-account }}
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
+        with:
+          install_components: gke-gcloud-auth-plugin
+          project_id: ${{ inputs.project-id }}
       - name: Update clusters
         env:
-          PROJECT_ID: ${{ inputs.project-id }}
           REGION_ZONE: ${{ inputs.region-zone }}
           SERVICE_LABEL: ${{ inputs.cluster-service-label}}
           ENVIRONMENT_LABEL: ${{ inputs.environment}}
@@ -83,7 +85,6 @@ jobs:
           USE_GKE_GCLOUD_AUTH_PLUGIN: True
         run: |-
           clusters=$(gcloud container clusters list \
-            --project=$PROJECT_ID \
             --zone=$REGION_ZONE \
             --filter="nodeConfig.labels.service=${SERVICE_LABEL} AND nodeConfig.labels.environment=${ENVIRONMENT_LABEL}" \
             | awk 'NR >= 2 {print $1}' \
@@ -98,7 +99,7 @@ jobs:
               if [ ! -z $cluster ]; then
                 echo -e "Deploying to ${cluster}... deployment=${K8S_DEPLOYMENT_NAME}, app=${K8S_APP_NAME}, image=${IMAGE}, namespace=${K8S_NAMESPACE}"
 
-                gcloud container clusters get-credentials $cluster --project=$PROJECT_ID --zone=$REGION_ZONE --quiet
+                gcloud container clusters get-credentials $cluster --zone=$REGION_ZONE --quiet
                 kubectl set image deployment/$K8S_DEPLOYMENT_NAME $K8S_APP_NAME=$IMAGE --namespace=$K8S_NAMESPACE
 
                 echo -e "Deploying to ${cluster}... OK"
