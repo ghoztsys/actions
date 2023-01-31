@@ -40,6 +40,14 @@ on:
         description: Sentry project slug
         required: false
         type: string
+      test-reporter:
+        description: Test reporter type
+        required: false
+        type: string
+      test-report-path:
+        description: Path to the test report
+        required: false
+        type: string
       create-release:
         default: false
         description: Specifies if pushing release to registry
@@ -176,11 +184,11 @@ jobs:
           sourcemaps: ./build
           version: ${{ steps.env.outputs.build_number }}
       - name: Generate test report
-        if: ${{ !inputs.skip-tests }}
+        if: ${{ inputs.test-reporter && !inputs.skip-tests }}
         uses: dorny/test-reporter@v1
         with:
           name: Test Report
-          path: .tmp/test-results.json
+          path: ${{ inputs.test-report-path }}
           reporter: mocha-json
       - name: Append summary
         if: ${{ inputs.create-release }}
