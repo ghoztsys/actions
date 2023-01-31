@@ -68,7 +68,7 @@ jobs:
     env:
       IMAGE_NAME: ${{ inputs.registry && format('{0}/', inputs.registry) || '' }}${{ inputs.project-id && format('{0}/', inputs.project-id) || '' }}${{ inputs.image-name }}
     outputs:
-      image: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
+      image: ${{ inputs.create-release && fromJSON(steps.metadata.outputs.json).tags[0] || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -124,6 +124,7 @@ jobs:
           tags: ${{ env.IMAGE_NAME }}:prod
           target: prod
       - name: Set up release metadata
+        if: ${{ inputs.create-release }}
         id: metadata
         uses: docker/metadata-action@v4
         with:
@@ -175,5 +176,6 @@ jobs:
           sourcemaps: ./build
           version: ${{ steps.env.outputs.build_number }}
       - name: Append summary
+        if: ${{ inputs.create-release }}
         run: |-
-          echo "Image: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}" >> $GITHUB_STEP_SUMMARY
+          echo "Successfully pushed image ${{ fromJSON(steps.metadata.outputs.json).tags[0] }} to Docker registry ${{ inputs.registry }}" >> $GITHUB_STEP_SUMMARY
