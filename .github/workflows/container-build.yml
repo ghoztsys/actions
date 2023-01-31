@@ -4,10 +4,6 @@
 on:
   workflow_call:
     inputs:
-      project-id:
-        description: ID of the GCP project where the container should be pushed to (required if `create-release`` is `true`)
-        required: false
-        type: string
       environment:
         default: development
         description: Build and deploy environment (i.e. for GitHub deployment, Sentry release, etc.)
@@ -74,8 +70,6 @@ jobs:
     permissions:
       checks: write
       id-token: write
-    env:
-      IMAGE_NAME: ${{ inputs.registry && format('{0}/', inputs.registry) || '' }}${{ inputs.project-id && format('{0}/', inputs.project-id) || '' }}${{ inputs.image-name }}
     outputs:
       image: ${{ inputs.create-release && fromJSON(steps.metadata.outputs.json).tags[0] || '' }}
     steps:
@@ -137,7 +131,7 @@ jobs:
         id: metadata
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: ${{ inputs.registry && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outputs.project_id }}/${{ inputs.image-name }}
           tags: |
             type=ref,event=pr,suffix=${{ inputs.image-tag-suffix }}
             type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
@@ -193,4 +187,4 @@ jobs:
       - name: Append summary
         if: ${{ inputs.create-release }}
         run: |-
-          echo "- Successfully pushed image: `${{ fromJSON(steps.metadata.outputs.json).tags[0] }}` to registry `${{ inputs.registry }}`" >> $GITHUB_STEP_SUMMARY
+          echo "- Pushed image \`${{ fromJSON(steps.metadata.outputs.json).tags[0] }}\` to registry \`${{ inputs.registry }}\`" >> $GITHUB_STEP_SUMMARY

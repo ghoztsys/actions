@@ -4,10 +4,6 @@
 on:
   workflow_call:
     inputs:
-      project-id:
-        description: ID of the GCP project where the container should be pushed to
-        required: true
-        type: string
       region-zone:
         description: Region zone of the GCP resources
         required: true
@@ -72,7 +68,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
         with:
           install_components: gke-gcloud-auth-plugin
-          project_id: ${{ inputs.project-id }}
+          project_id: ${{ steps.auth.outputs.project_id }}
       - name: Update clusters
         env:
           REGION_ZONE: ${{ inputs.region-zone }}
@@ -102,9 +98,10 @@ jobs:
                 kubectl set image deployment/$K8S_DEPLOYMENT_NAME $K8S_APP_NAME=$IMAGE --namespace=$K8S_NAMESPACE
 
                 echo -e "Deploying to ${cluster}... OK"
-                echo "- Successfully deployed image `${IMAGE}` to cluster `${cluster}`" >> $GITHUB_STEP_SUMMARY
+                echo "- Updated \`$K8S_APP_NAME\` to \`${IMAGE}\` in \`deployment/$K8S_DEPLOYMENT_NAME\` for cluster \`${cluster}\`" >> $GITHUB_STEP_SUMMARY
               fi
             done
           else
-            echo -e "No Kubernetes cluster(s) provided, skipping operation"
+            echo -e "No Kubernetes cluster(s) found, skipping deploy"
+            echo "No Kubernetes cluster(s) found, deployment skipped." >> $GITHUB_STEP_SUMMARY
           fi
