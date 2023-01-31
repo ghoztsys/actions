@@ -64,6 +64,7 @@ jobs:
     name: Container
     runs-on: ubuntu-latest
     permissions:
+      checks: write
       id-token: write
     env:
       IMAGE_NAME: ${{ inputs.registry && format('{0}/', inputs.registry) || '' }}${{ inputs.project-id && format('{0}/', inputs.project-id) || '' }}${{ inputs.image-name }}
