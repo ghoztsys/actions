@@ -24,25 +24,23 @@ on:
         description: Kubernetes namespace in the GKE cluster to deploy to.
         required: false
         type: string
-      k8s-app-name:
-        description: Kubernetes app name used as the container label.
+      k8s-container:
+        description: Kubernetes container name.
         required: true
         type: string
-      k8s-deployment-name:
+      k8s-deployment:
         description: Kubernetes deployment to update at the end of the deployment.
-        required: true
-        type: string
-      workload-identity-provider:
-        description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
-        required: true
-        type: string
-      service-account:
-        description: GCP service account to impersonate by the current Workload Identity
         required: true
         type: string
     secrets:
       gh-access-token:
         description: GitHub access token for checking out private repos
+        required: true
+      workload-identity-provider:
+        description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
+        required: true
+      service-account:
+        description: GCP service account to impersonate by the current Workload Identity
         required: true
 jobs:
   deploy:
@@ -62,8 +60,8 @@ jobs:
         uses: google-github-actions/auth@v1
         with:
           token_format: access_token
-          workload_identity_provider: ${{ inputs.workload-identity-provider }}
-          service_account: ${{ inputs.service-account }}
+          workload_identity_provider: ${{ secrets.workload-identity-provider }}
+          service_account: ${{ secrets.service-account }}
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
         with:
@@ -72,17 +70,18 @@ jobs:
       - name: Update clusters
         env:
           REGION_ZONE: ${{ inputs.region-zone }}
-          SERVICE_LABEL: ${{ inputs.cluster-service-label}}
-          ENVIRONMENT_LABEL: ${{ inputs.environment}}
           IMAGE: ${{ inputs.image }}
+          MATCH_LABELS: ${{ inputs.match-labels }}
           K8S_NAMESPACE: ${{ inputs.k8s-namespace }}
-          K8S_APP_NAME: ${{ inputs.k8s-app-name }}
-          K8S_DEPLOYMENT_NAME: ${{ inputs.k8s-deployment-name }}
+          K8S_CONTAINER: ${{ inputs.k8s-container }}
+          K8S_DEPLOYMENT: ${{ inputs.k8s-deployment }}
           USE_GKE_GCLOUD_AUTH_PLUGIN: True
         run: |-
+          labels=($(echo $MATCH_LABELS | sed "s/,/ /g"))
+          filter=$(printf " AND nodeConfig.labels.%s" "${labels[@]}")
           clusters=$(gcloud container clusters list \
             --zone=$REGION_ZONE \
-            --filter="nodeConfig.labels.service=${SERVICE_LABEL} AND nodeConfig.labels.environment=${ENVIRONMENT_LABEL}" \
+            --filter="${filter:5}" \
             | awk 'NR >= 2 {print $1}' \
             | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')
 
@@ -92,13 +91,13 @@ jobs:
             for cluster in $(echo $clusters | sed "s/,/ /g")
             do
               if [ ! -z $cluster ]; then
-                echo -e "Deploying to ${cluster}... deployment=${K8S_DEPLOYMENT_NAME}, app=${K8S_APP_NAME}, image=${IMAGE}, namespace=${K8S_NAMESPACE}"
+                echo -e "Deploying to ${cluster}... deployment=${K8S_DEPLOYMENT}, app=${K8S_CONTAINER}, image=${IMAGE}, namespace=${K8S_NAMESPACE}"
 
                 gcloud container clusters get-credentials $cluster --zone=$REGION_ZONE --quiet
-                kubectl set image deployment/$K8S_DEPLOYMENT_NAME $K8S_APP_NAME=$IMAGE --namespace=$K8S_NAMESPACE
+                kubectl set image deployment/$K8S_DEPLOYMENT $K8S_CONTAINER=$IMAGE --namespace=$K8S_NAMESPACE
 
                 echo -e "Deploying to ${cluster}... OK"
-                echo "- Updated \`$K8S_APP_NAME\` to \`${IMAGE}\` in \`deployment/$K8S_DEPLOYMENT_NAME\` for cluster \`${cluster}\`" >> $GITHUB_STEP_SUMMARY
+                echo "- Updated \`$K8S_CONTAINER\` to \`${IMAGE}\` in \`deployment/$K8S_DEPLOYMENT\` for cluster \`${cluster}\`" >> $GITHUB_STEP_SUMMARY
               fi
             done
           else
