@@ -32,15 +32,17 @@ on:
         description: Kubernetes deployment to update at the end of the deployment.
         required: true
         type: string
-    secrets:
-      gh-access-token:
-        description: GitHub access token for checking out private repos
-        required: true
       workload-identity-provider:
         description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
         required: true
+        type: string
       service-account:
         description: GCP service account to impersonate by the current Workload Identity
+        required: true
+        type: string
+    secrets:
+      gh-access-token:
+        description: GitHub access token for checking out private repos
         required: true
 jobs:
   deploy:
@@ -60,8 +62,8 @@ jobs:
         uses: google-github-actions/auth@v1
         with:
           token_format: access_token
-          workload_identity_provider: ${{ secrets.workload-identity-provider }}
-          service_account: ${{ secrets.service-account }}
+          workload_identity_provider: ${{ inputs.workload-identity-provider }}
+          service_account: ${{ inputs.service-account }}
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
         with:
