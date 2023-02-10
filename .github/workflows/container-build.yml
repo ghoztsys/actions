@@ -119,7 +119,7 @@ jobs:
         if: ${{ !inputs.skip-tests }}
         env:
           IMAGE: ${{ fromJSON(steps.build-test.outputs.metadata)['image.name'] }}
-        run: eval "${{ inputs.test-command }}"
+        run: ${{ inputs.test-command }}
       - name: Build prod target
         id: build-prod
         uses: docker/build-push-action@v4
