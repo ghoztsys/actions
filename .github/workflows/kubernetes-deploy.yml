@@ -87,22 +87,18 @@ jobs:
             | awk 'NR >= 2 {print $1}' \
             | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')
 
-          echo "Preparing to deploy ${IMAGE} to Kubernetes cluster(s)..."
-
           if [ ! -z $clusters ]; then
+            echo "Deployed Kubernetes cluster(s):" >> $GITHUB_STEP_SUMMARY
+
             for cluster in $(echo $clusters | sed "s/,/ /g")
             do
               if [ ! -z $cluster ]; then
-                echo -e "Deploying to ${cluster}... deployment=${K8S_DEPLOYMENT}, app=${K8S_CONTAINER}, image=${IMAGE}, namespace=${K8S_NAMESPACE}"
-
                 gcloud container clusters get-credentials $cluster --zone=$REGION_ZONE --quiet
                 kubectl set image deployment/$K8S_DEPLOYMENT $K8S_CONTAINER=$IMAGE --namespace=$K8S_NAMESPACE
 
-                echo -e "Deploying to ${cluster}... OK"
                 echo "- Updated \`$K8S_CONTAINER\` to \`${IMAGE}\` in \`deployment/$K8S_DEPLOYMENT\` for cluster \`${cluster}\`" >> $GITHUB_STEP_SUMMARY
               fi
             done
           else
-            echo -e "No Kubernetes cluster(s) found, skipping deploy"
             echo "No Kubernetes cluster(s) found, deployment skipped." >> $GITHUB_STEP_SUMMARY
           fi

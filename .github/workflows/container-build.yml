@@ -28,6 +28,10 @@ on:
         description: Sentry project slug
         required: false
         type: string
+      test-command:
+        default: docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+        description: Command for running tests
+        type: string
       test-reporter:
         description: Test reporter type
         required: false
@@ -113,7 +117,9 @@ jobs:
           target: test
       - name: Run tests
         if: ${{ !inputs.skip-tests }}
-        run: make run target=test image=${{ fromJSON(steps.build-test.outputs.metadata)['image.name'] }}
+        env:
+          IMAGE: ${{ fromJSON(steps.build-test.outputs.metadata)['image.name'] }}
+        run: eval "${{ inputs.test-command }}"
       - name: Build prod target
         id: build-prod
         uses: docker/build-push-action@v4
@@ -187,4 +193,4 @@ jobs:
       - name: Append summary
         if: ${{ inputs.create-release }}
         run: |-
-          echo "- Pushed image \`${{ fromJSON(steps.metadata.outputs.json).tags[0] }}\` to registry \`${{ inputs.registry }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Pushed image \`${{ fromJSON(steps.metadata.outputs.json).tags[0] }}\` to registry \`${{ inputs.registry }}\`." >> $GITHUB_STEP_SUMMARY
