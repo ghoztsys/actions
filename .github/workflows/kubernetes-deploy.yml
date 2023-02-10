@@ -21,8 +21,8 @@ on:
         required: false
         type: string
       k8s-namespace:
+        default: default
         description: Kubernetes namespace in the GKE cluster to deploy to.
-        required: false
         type: string
       k8s-container:
         description: Kubernetes container name.
