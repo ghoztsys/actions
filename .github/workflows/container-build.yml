@@ -117,9 +117,7 @@ jobs:
           target: test
       - name: Run tests
         if: ${{ !inputs.skip-tests }}
-        env:
-          IMAGE: ${{ fromJSON(steps.build-test.outputs.metadata)['image.name'] }}
-        run: ${{ inputs.test-command }}
+        run: IMAGE=${{ fromJSON(steps.build-test.outputs.metadata)['image.name'] }} ${{ inputs.test-command }}
       - name: Build prod target
         id: build-prod
         uses: docker/build-push-action@v4
