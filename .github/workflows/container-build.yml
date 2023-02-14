@@ -85,6 +85,7 @@ jobs:
       - name: Set up environment
         id: env
         run: |-
+          echo "build_version=$(grep '"version"' ./package.json | cut -d '"' -f 4 | head -n 1)" >> $GITHUB_OUTPUT
           echo "build_number=$(echo ${GITHUB_SHA:-$(git rev-parse HEAD)} | head -c7)" >> $GITHUB_OUTPUT
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -140,6 +141,7 @@ jobs:
             type=ref,event=pr,suffix=${{ inputs.image-tag-suffix }}
             type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
             type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
+            type=raw,value=${{ steps.env.outputs.build_version }},suffix=${{ inputs.image-tag-suffix }}
             type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
       - name: Push image release to registry
         uses: docker/build-push-action@v4
