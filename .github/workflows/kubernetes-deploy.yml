@@ -1,5 +1,5 @@
-# GitHub reusable workflow for deploying a local Dockerfile to Google Container
-# Registry or Google Artifact Registry.
+# GitHub reusable workflow for deploying a container from Google Container
+# Registry or Google Artifact Registry to Google Kubernetes Engine.
 
 on:
   workflow_call:

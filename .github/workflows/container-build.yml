@@ -1,5 +1,5 @@
-# GitHub reusable workflow for building and testing a local Dockerfile to Google
-# Container Registry or Google Artifact Registry.
+# GitHub reusable workflow for building, testing and pushing a Docker container
+# to Google Container Registry or Google Artifact Registry.
 
 on:
   workflow_call:
