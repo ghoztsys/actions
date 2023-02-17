@@ -4,14 +4,18 @@
 on:
   workflow_call:
     inputs:
-      environment:
-        default: development
-        description: Build and deploy environment (i.e. for GitHub deployment, Sentry release, etc.)
+      artifacts-name:
+        default: build-artifacts
+        description: Artifacts name
         type: string
-      registry:
-        description: Registry path (required if `create-release` is `true`, i.e. `gcr.io` for GCR or `<location>-docker.pkg.dev` for GAR)
+      artifacts-path:
+        description: Artifacts path (relative to working directory)
         required: false
         type: string
+      create-release:
+        default: false
+        description: Specifies if pushing release to registry
+        type: boolean
       image-name:
         default: ${{ github.repository }}
         description: Docker image base name (excluding the GCP project ID and registry)
@@ -20,43 +24,47 @@ on:
         description: Docker image tag suffix
         required: false
         type: string
-      sentry-org:
-        description: Sentry organization slug
-        required: false
-        type: string
-      sentry-project:
-        description: Sentry project slug
-        required: false
-        type: string
-      test-command:
-        default: docker-compose -f docker-compose.test.yml up --abort-on-container-exit
-        description: Command for running tests
-        type: string
-      test-reporter:
-        description: Test reporter type
-        required: false
-        type: string
-      test-report-path:
-        description: Path to the test report
-        required: false
-        type: string
-      create-release:
-        default: false
-        description: Specifies if pushing release to registry
-        type: boolean
-      skip-tests:
-        default: false
-        description: Specifies if tests should run
-        type: boolean
-      workload-identity-provider:
-        description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
+      registry:
+        description: Registry path (required if `create-release` is `true`, i.e. `gcr.io` for GCR or `<location>-docker.pkg.dev` for GAR)
         required: false
         type: string
       service-account:
         description: GCP service account to impersonate by the current Workload Identity
         required: false
         type: string
+      skip-tests:
+        default: false
+        description: Specifies if tests should run
+        type: boolean
+      test-command:
+        default: docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+        description: Command for running tests
+        type: string
+      test-report-path:
+        description: Path to the test report
+        required: false
+        type: string
+      test-reporter:
+        description: Test reporter type
+        required: false
+        type: string
+      workload-identity-provider:
+        description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
+        required: false
+        type: string
     outputs:
+      artifacts-name:
+        description: Name of the uploaded artifacts
+        value: ${{ jobs.build.outputs.artifacts-name }}
+      artifacts-path:
+        description: Path of the uploaded artifacts (relative to working directory)
+        value: ${{ jobs.build.outputs.artifacts-path }}
+      build-number:
+        description: Build number of this app
+        value: ${{ jobs.build.outputs.build-number }}
+      build-version:
+        description: Build version of this app
+        value: ${{ jobs.build.outputs.build-version }}
       image:
         description: The built Docker image
         value: ${{ jobs.build.outputs.image }}
@@ -64,9 +72,6 @@ on:
       gh-access-token:
         description: GitHub access token for checking out private repos
         required: true
-      sentry-auth-token:
-        description: Sentry authentication token (if creating a release in Sentry)
-        required: false
 jobs:
   build:
     name: Container
@@ -75,6 +80,10 @@ jobs:
       checks: write
       id-token: write
     outputs:
+      artifacts-name: ${{ inputs.artifacts-path && inputs.artifacts-name || '' }}
+      artifacts-path: ${{ inputs.artifacts-path }}
+      build-number: ${{ steps.env.outputs.build_number }}
+      build-version: ${{ steps.env.outputs.build_version }}
       image: ${{ inputs.create-release && fromJSON(steps.metadata.outputs.json).tags[0] || '' }}
     steps:
       - name: Checkout
@@ -94,16 +103,16 @@ jobs:
         if: ${{ inputs.workload-identity-provider && inputs.service-account }}
         uses: google-github-actions/auth@v1
         with:
+          service_account: ${{ inputs.service-account }}
           token_format: access_token
           workload_identity_provider: ${{ inputs.workload-identity-provider }}
-          service_account: ${{ inputs.service-account }}
       - name: Authenticate Docker registry
         if: ${{ inputs.registry }}
         uses: docker/login-action@v2
         with:
+          password: ${{ steps.auth.outputs.access_token }}
           registry: ${{ inputs.registry }}
           username: oauth2accesstoken
-          password: ${{ steps.auth.outputs.access_token }}
       - name: Build test target
         id: build-test
         if: ${{ !inputs.skip-tests }}
@@ -156,12 +165,12 @@ jobs:
           secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
           tags: ${{ steps.metadata.outputs.tags }}
       - name: Copy artifacts
-        if: ${{ inputs.create-release && inputs.sentry-project }}
+        if: ${{ inputs.artifacts-path }}
         env:
           IMAGE: ${{ fromJSON(steps.build-prod.outputs.metadata)['image.name'] }}
         run: |-
-          from_path="/var/app/build/"
-          to_path="${PWD}/build"
+          from_path="/var/app/${{ inputs.artifacts-path }}"
+          to_path="${PWD}/${{ inputs.artifacts-path }}"
           process_name="tmp"
 
           echo "Copying files from ${IMAGE}... from=${from_path}, to=${to_path}"
@@ -171,18 +180,12 @@ jobs:
           docker stop $process_name
 
           echo "Copying files from ${IMAGE}... OK"
-      - name: Create Sentry release
-        if: ${{ inputs.create-release && inputs.sentry-project }}
-        uses: getsentry/action-release@v1
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.sentry-auth-token }}
-          SENTRY_ORG: ${{ inputs.sentry-org }}
-          SENTRY_PROJECT: ${{ inputs.sentry-project }}
+      - name: Store artifacts
+        if: ${{ inputs.artifacts-path }}
+        uses: actions/upload-artifact@v3
         with:
-          environment: ${{ inputs.environment }}
-          set_commits: skip
-          sourcemaps: ./build
-          version: ${{ steps.env.outputs.build_number }}
+          name: ${{ inputs.artifacts-name }}
+          path: ${{ inputs.artifacts-path }}
       - name: Generate test report
         if: ${{ inputs.test-reporter && !inputs.skip-tests }}
         uses: dorny/test-reporter@v1

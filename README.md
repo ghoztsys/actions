@@ -1,7 +1,7 @@
 # Workflows
 
-Repository of organization-wide reusable workflows.
+Repository of reusable workflows.
 
 ---
 
-© Sybl
+© GHOZT

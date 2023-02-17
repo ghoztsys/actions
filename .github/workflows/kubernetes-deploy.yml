@@ -4,25 +4,9 @@
 on:
   workflow_call:
     inputs:
-      region-zone:
-        description: Region zone of the GCP resources
-        required: true
-        type: string
       environment:
-        description: Build and deploy environment (i.e. for GitHub deployment, Sentry release, etc.)
+        description: GitHub deploy environment.
         required: false
-        type: string
-      image:
-        description: Docker image to deploy
-        required: true
-        type: string
-      match-labels:
-        description: Comma-delimited labels to match when searching for clusters to deploy (i.e. "service=foo,environment=bar")
-        required: false
-        type: string
-      k8s-namespace:
-        default: default
-        description: Kubernetes namespace in the GKE cluster to deploy to.
         type: string
       k8s-container:
         description: Kubernetes container name.
@@ -32,12 +16,28 @@ on:
         description: Kubernetes deployment to update at the end of the deployment.
         required: true
         type: string
-      workload-identity-provider:
-        description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
+      k8s-namespace:
+        default: default
+        description: Kubernetes namespace in the GKE cluster to deploy to.
+        type: string
+      image:
+        description: Docker image to deploy
+        required: true
+        type: string
+      match-labels:
+        description: Comma-delimited labels to match when searching for clusters to deploy (i.e. "service=foo,environment=bar")
+        required: false
+        type: string
+      region-zone:
+        description: Region zone of the GCP resources
         required: true
         type: string
       service-account:
         description: GCP service account to impersonate by the current Workload Identity
+        required: true
+        type: string
+      workload-identity-provider:
+        description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
         required: true
         type: string
     secrets:
@@ -61,9 +61,9 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v1
         with:
+          service_account: ${{ inputs.service-account }}
           token_format: access_token
           workload_identity_provider: ${{ inputs.workload-identity-provider }}
-          service_account: ${{ inputs.service-account }}
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
         with:
@@ -71,12 +71,12 @@ jobs:
           project_id: ${{ steps.auth.outputs.project_id }}
       - name: Update clusters
         env:
-          REGION_ZONE: ${{ inputs.region-zone }}
           IMAGE: ${{ inputs.image }}
-          MATCH_LABELS: ${{ inputs.match-labels }}
-          K8S_NAMESPACE: ${{ inputs.k8s-namespace }}
           K8S_CONTAINER: ${{ inputs.k8s-container }}
           K8S_DEPLOYMENT: ${{ inputs.k8s-deployment }}
+          K8S_NAMESPACE: ${{ inputs.k8s-namespace }}
+          MATCH_LABELS: ${{ inputs.match-labels }}
+          REGION_ZONE: ${{ inputs.region-zone }}
           USE_GKE_GCLOUD_AUTH_PLUGIN: True
         run: |-
           labels=($(echo $MATCH_LABELS | sed "s/,/ /g"))
