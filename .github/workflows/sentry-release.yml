@@ -21,11 +21,10 @@ on:
         type: string
       sourcemaps-path:
         description: Path (relative to working directory) to of the sourcemaps
-        required: true
         type: string
       version:
-        description: Identifier that uniquely identifies the release.
-        required: true
+        description: Identifier that uniquely identifies the release
+        required: false
         type: string
     secrets:
       sentry-auth-token:
@@ -54,4 +53,4 @@ jobs:
           environment: ${{ inputs.environment }}
           set_commits: skip
           sourcemaps: ./${{ inputs.sourcemaps-path }}
-          version: ${{ inputs.version }}
+          version: ${{ inputs.version && inputs.version || github.sha }}
