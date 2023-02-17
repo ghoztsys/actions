@@ -4,32 +4,32 @@
 on:
   workflow_call:
     inputs:
+      cluster-labels:
+        description: Comma-delimited labels to match when searching for clusters to deploy (i.e. "service=foo,environment=bar")
+        required: false
+        type: string
+      cluster-region-zone:
+        description: Specific region zone of the GKE cluster to deploy to
+        required: false
+        type: string
       environment:
-        description: GitHub deploy environment.
+        description: GitHub deploy environment
         required: false
         type: string
       k8s-container:
-        description: Kubernetes container name.
+        description: Kubernetes container name
         required: true
         type: string
       k8s-deployment:
-        description: Kubernetes deployment to update at the end of the deployment.
+        description: Kubernetes deployment to update at the end of the deployment
         required: true
         type: string
       k8s-namespace:
         default: default
-        description: Kubernetes namespace in the GKE cluster to deploy to.
+        description: Kubernetes namespace in the GKE cluster to deploy to
         type: string
       image:
         description: Docker image to deploy
-        required: true
-        type: string
-      labels-selector:
-        description: Comma-delimited labels to match when searching for clusters to deploy (i.e. "service=foo,environment=bar")
-        required: false
-        type: string
-      region-zone:
-        description: Region zone of the GCP resources
         required: true
         type: string
       service-account:
@@ -41,9 +41,9 @@ on:
         required: true
         type: string
     secrets:
-      gh-access-token:
+      github-token:
         description: GitHub access token for checking out private repos
-        required: true
+        required: false
 jobs:
   deploy:
     name: Kubernetes
@@ -56,7 +56,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
-          token: ${{ secrets.gh-access-token }}
+          token: ${{ secrets.github-token }}
       - name: Authenticate Google Cloud
         id: auth
         uses: google-github-actions/auth@v1
@@ -75,16 +75,16 @@ jobs:
           K8S_CONTAINER: ${{ inputs.k8s-container }}
           K8S_DEPLOYMENT: ${{ inputs.k8s-deployment }}
           K8S_NAMESPACE: ${{ inputs.k8s-namespace }}
-          LABELS_SELECTOR: ${{ inputs.labels-selector }}
-          REGION_ZONE: ${{ inputs.region-zone }}
+          LABELS: ${{ inputs.cluster-labels }}
+          REGION_ZONE: ${{ inputs.cluster-region-zone }}
           USE_GKE_GCLOUD_AUTH_PLUGIN: True
         run: |-
-          labels=($(echo $LABELS_SELECTOR | sed "s/,/ /g"))
+          labels=($(echo $LABELS | sed "s/,/ /g"))
           filter=$(printf " AND nodeConfig.labels.%s" "${labels[@]}")
           clusters=$(gcloud container clusters list \
-            --zone=$REGION_ZONE \
+            --zone="${REGION_ZONE}" \
             --filter="${filter:5}" \
-            | awk 'NR >= 2 {print $1}' \
+            | awk 'NR >= 2 {print $1 "\/" $2}' \
             | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')
 
           if [ ! -z $clusters ]; then
@@ -93,10 +93,11 @@ jobs:
             for cluster in $(echo $clusters | sed "s/,/ /g")
             do
               if [ ! -z $cluster ]; then
-                gcloud container clusters get-credentials $cluster --zone=$REGION_ZONE --quiet
+                IFS=/ read name region_zone <<< $cluster
+                gcloud container clusters get-credentials $name --zone=$region_zone --quiet
                 kubectl set image deployment/$K8S_DEPLOYMENT $K8S_CONTAINER=$IMAGE --namespace=$K8S_NAMESPACE
 
-                echo "- Updated \`$K8S_CONTAINER\` to \`${IMAGE}\` in \`deployment/$K8S_DEPLOYMENT\` for cluster \`${cluster}\`" >> $GITHUB_STEP_SUMMARY
+                echo "- Updated \`${K8S_CONTAINER}\` to \`${IMAGE}\` in \`deployment/${K8S_DEPLOYMENT}\` for cluster \`${name}\` in region zone \`${region_zone}\`" >> $GITHUB_STEP_SUMMARY
               fi
             done
           else

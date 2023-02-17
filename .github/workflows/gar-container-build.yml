@@ -1,5 +1,5 @@
 # GitHub reusable workflow for building, testing and pushing a Docker container
-# to Google Container Registry or Google Artifact Registry.
+# to Google Artifact Registry or Google Container Registry.
 
 on:
   workflow_call:
@@ -12,9 +12,17 @@ on:
         description: Artifacts path (relative to working directory)
         required: false
         type: string
-      create-release:
+      build-args:
+        description: List of build-time variables
+        required: false
+        type: string
+      build-secrets:
+        description: List of build-time secrets
+        required: false
+        type: string
+      push:
         default: false
-        description: Specifies if pushing release to registry
+        description: Specifies if pushing image to registry
         type: boolean
       image-name:
         default: ${{ github.repository }}
@@ -25,19 +33,14 @@ on:
         required: false
         type: string
       registry:
-        description: Registry path (required if `create-release` is `true`, i.e. `gcr.io` for GCR or `<location>-docker.pkg.dev` for GAR)
-        required: false
+        default: us-docker.pkg.dev
+        description: Registry path (required if `push` is `true`, i.e. `<location>-docker.pkg.dev` for GAR or `gcr.io` for GCR)
         type: string
       service-account:
         description: GCP service account to impersonate by the current Workload Identity
         required: false
         type: string
-      skip-tests:
-        default: false
-        description: Specifies if tests should run
-        type: boolean
       test-command:
-        default: docker-compose -f docker-compose.test.yml up --abort-on-container-exit
         description: Command for running tests
         type: string
       test-report-path:
@@ -69,9 +72,9 @@ on:
         description: The built Docker image
         value: ${{ jobs.build.outputs.image }}
     secrets:
-      gh-access-token:
-        description: GitHub access token for checking out private repos
-        required: true
+      github-token:
+        description: GitHub personal access token to use when checking out private repositories
+        required: false
 jobs:
   build:
     name: Container
@@ -82,20 +85,13 @@ jobs:
     outputs:
       artifacts-name: ${{ inputs.artifacts-path && inputs.artifacts-name || '' }}
       artifacts-path: ${{ inputs.artifacts-path }}
-      build-number: ${{ steps.env.outputs.build_number }}
-      build-version: ${{ steps.env.outputs.build_version }}
-      image: ${{ inputs.create-release && fromJSON(steps.metadata.outputs.json).tags[0] || '' }}
+      image: ${{ inputs.push && fromJSON(steps.metadata.outputs.json).tags[0] || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           submodules: recursive
-          token: ${{ secrets.gh-access-token }}
-      - name: Set up environment
-        id: env
-        run: |-
-          echo "build_version=$(grep '"version"' ./package.json | cut -d '"' -f 4 | head -n 1)" >> $GITHUB_OUTPUT
-          echo "build_number=$(echo ${GITHUB_SHA:-$(git rev-parse HEAD)} | head -c7)" >> $GITHUB_OUTPUT
+          token: ${{ secrets.github-token }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       - name: Authenticate Google Cloud
@@ -107,7 +103,7 @@ jobs:
           token_format: access_token
           workload_identity_provider: ${{ inputs.workload-identity-provider }}
       - name: Authenticate Docker registry
-        if: ${{ inputs.registry }}
+        if: ${{ steps.auth.outcome == 'success' }}
         uses: docker/login-action@v2
         with:
           password: ${{ steps.auth.outputs.access_token }}
@@ -115,54 +111,59 @@ jobs:
           username: oauth2accesstoken
       - name: Build test target
         id: build-test
-        if: ${{ !inputs.skip-tests }}
+        if: ${{ inputs.test-command }}
         uses: docker/build-push-action@v4
         with:
           cache-from: type=gha,scope=${{ github.workflow }}
           cache-to: type=gha,scope=${{ github.workflow }},mode=max
           context: .
           load: true
-          secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
+          secrets: |
+            GITHUB_TOKEN=${{ secrets.github-token }}
+            ${{ inputs.build-secrets }}
           tags: ${{ inputs.image-name }}:test
           target: test
       - name: Run tests
-        if: ${{ !inputs.skip-tests }}
+        if: ${{ inputs.test-command }}
         run: IMAGE=${{ fromJSON(steps.build-test.outputs.metadata)['image.name'] }} ${{ inputs.test-command }}
       - name: Build prod target
         id: build-prod
         uses: docker/build-push-action@v4
         with:
-          build-args: BUILD_NUMBER=${{ steps.env.outputs.build_number }}
+          build-args: ${{ inputs.build-args }}
           cache-from: type=gha,scope=${{ github.workflow }}
           cache-to: type=gha,scope=${{ github.workflow }},mode=max
           context: .
           load: true
-          secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
+          secrets: |
+            GITHUB_TOKEN=${{ secrets.github-token }}
+            ${{ inputs.build-secrets }}
           tags: ${{ inputs.image-name }}:prod
           target: prod
       - name: Set up release metadata
-        if: ${{ inputs.create-release }}
+        if: ${{ inputs.push }}
         id: metadata
         uses: docker/metadata-action@v4
         with:
-          images: ${{ inputs.registry && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outputs.project_id }}/${{ inputs.image-name }}
+          images: ${{ format('{0}/', inputs.registry) || '' }}${{ steps.auth.outputs.project_id }}/${{ inputs.image-name }}
           tags: |
             type=ref,event=pr,suffix=${{ inputs.image-tag-suffix }}
             type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
             type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
-            type=raw,value=${{ steps.env.outputs.build_version }},suffix=${{ inputs.image-tag-suffix }}
             type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
       - name: Push image release to registry
         uses: docker/build-push-action@v4
-        if: ${{ inputs.create-release }}
+        if: ${{ inputs.push }}
         with:
-          build-args: BUILD_NUMBER=${{ steps.env.outputs.build_number }}
+          build-args: ${{ inputs.build-args }}
           cache-from: type=gha,scope=${{ github.workflow }}
           cache-to: type=gha,scope=${{ github.workflow }},mode=max
           context: .
           labels: ${{ steps.metadata.outputs.labels }}
           push: true
-          secrets: GH_ACCESS_TOKEN=${{ secrets.gh-access-token }}
+          secrets: |
+            GITHUB_TOKEN=${{ secrets.github-token }}
+            ${{ inputs.build-secrets }}
           tags: ${{ steps.metadata.outputs.tags }}
       - name: Copy artifacts
         if: ${{ inputs.artifacts-path }}
@@ -187,13 +188,13 @@ jobs:
           name: ${{ inputs.artifacts-name }}
           path: ${{ inputs.artifacts-path }}
       - name: Generate test report
-        if: ${{ inputs.test-reporter && !inputs.skip-tests }}
+        if: ${{ inputs.test-command && inputs.test-reporter }}
         uses: dorny/test-reporter@v1
         with:
           name: Test Report
           path: ${{ inputs.test-report-path }}
           reporter: ${{ inputs.test-reporter }}
       - name: Append summary
-        if: ${{ inputs.create-release }}
+        if: ${{ inputs.push }}
         run: |-
           echo "Pushed image \`${{ fromJSON(steps.metadata.outputs.json).tags[0] }}\` to registry \`${{ inputs.registry }}\`." >> $GITHUB_STEP_SUMMARY
