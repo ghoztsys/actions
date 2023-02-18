@@ -1,0 +1,103 @@
+# GitHub reusable workflow for deploying a folder to Google Cloud Storage.
+
+on:
+  workflow_call:
+    inputs:
+      artifacts-name:
+        description: Name of the artifacts to download
+        required: false
+        type: string
+      from-path:
+        description: Folder path (relative to working directory) to upload
+        type: string
+        # build/static/
+      labels:
+        description: Comma-delimited labels to match when searching for buckets to deploy to (i.e. "service=foo,environment=bar")
+        required: false
+        type: string
+      project-id:
+        description: Specific ID of the project that hosts the GCS bucket other than the project of the service account
+        required: false
+        type: string
+      public:
+        default: false
+        description: Specifies if the uploaded files can be publicly accessed
+        type: boolean
+      service-account:
+        description: GCP service account to impersonate by the current Workload Identity
+        required: true
+        type: string
+      to-path:
+        description: Path in GCS to upload the folder to
+        type: string
+        # static/${{ steps.env.outputs.app_build }}/
+      workload-identity-provider:
+        description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
+        required: true
+        type: string
+    secrets:
+      github-token:
+        description: GitHub access token for checking out private repos
+        required: false
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          token: ${{ secrets.github-token }}
+      - name: Authenticate Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          service_account: ${{ inputs.service-account }}
+          token_format: access_token
+          workload_identity_provider: ${{ inputs.workload-identity-provider }}
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ inputs.project_id && inputs.project_id || steps.auth.outputs.project_id }}
+      - name: Download artifacts
+        if: ${{ inputs.artifacts-name }}
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ inputs.artifacts-name }}
+          path: ${{ inputs.to-path }}
+      - name: Publish static assets to CDN
+        env:
+          PUBLIC_ACL: ${{ inputs.public && 'true' || 'false' }}
+        run: |-
+          project_id=${${{ inputs.project-id }}:-$(gcloud config get-value project 2> /dev/null)}
+          buckets=
+
+          for bucket in $(gsutil ls); do
+            if gsutil label get "${bucket}" | grep -q "\"service\": \"$service_label\"" && gsutil label get "${bucket}" | grep -q "\"environment\": \"$environment_label\""; then
+              buckets=${buckets}${bucket},
+            fi
+          done
+
+          from_path="${PWD}/${{ inputs.from-path }}*"
+          to_path="${{ inputs.to-path }}"
+
+          if [ ! -z $buckets ]; then
+            for bucket in $(echo $buckets | sed "s/,/ /g")
+            do
+              if [ ! -z $bucket ]; then
+                gsutil -m -h "Cache-Control:public,max-age=315360000" cp -Z -r ${from_path} ${bucket}${to_path}
+
+                if [ $PUBLIC_ACL = "true" ]; then
+                  gsutil acl ch -u AllUsers:R $bucket
+                fi
+
+                echo "- Uploaded \`${from_path}\` to \`${bucket}${to_path}\`" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          else
+            echo "No GCS bucket(s) found, deployment skipped." >> $GITHUB_STEP_SUMMARY
+          fi

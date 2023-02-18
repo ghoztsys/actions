@@ -5,11 +5,11 @@ on:
   workflow_call:
     inputs:
       cluster-labels:
-        description: Comma-delimited labels to match when searching for clusters to deploy (i.e. "service=foo,environment=bar")
+        description: Comma-delimited labels to match when searching for clusters to deploy to (i.e. "service=foo,environment=bar")
         required: false
         type: string
       cluster-region-zone:
-        description: Specific region zone of the GKE cluster to deploy to
+        description: Specific region zone of the GKE cluster(s) to deploy to
         required: false
         type: string
       environment:

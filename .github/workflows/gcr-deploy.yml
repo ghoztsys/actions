@@ -1,0 +1,86 @@
+# GitHub reusable workflow for deploying a container from Google Container
+# Registry or Google Artifact Registry to Google Cloud Run.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub deploy environment
+        required: false
+        type: string
+      image:
+        description: Docker image to deploy
+        required: true
+        type: string
+      labels:
+        description: Comma-delimited labels to match when searching for Cloud Run services to deploy to (i.e. "service=foo,environment=bar")
+        required: false
+        type: string
+      region:
+        description: Specific region of the Cloud Run service(s) to deploy to
+        required: false
+        type: string
+      service-account:
+        description: GCP service account to impersonate by the current Workload Identity
+        required: true
+        type: string
+      workload-identity-provider:
+        description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
+        required: true
+        type: string
+    secrets:
+      github-token:
+        description: GitHub access token for checking out private repos
+        required: false
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          token: ${{ secrets.github-token }}
+      - name: Authenticate Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          service_account: ${{ inputs.service-account }}
+          token_format: access_token
+          workload_identity_provider: ${{ inputs.workload-identity-provider }}
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ steps.auth.outputs.project_id }}
+      - name: Update services
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |-
+          labels=($(echo ${{ inputs.labels }} | sed "s/,/ /g"))
+          filter=$(printf " AND metadata.labels.%s" "${labels[@]}")
+          services=$(gcloud run services list \
+            --platform "managed" \
+            --region "${{ inputs.region }}" \
+            --filter="${filter:5}" \
+            | awk 'NR >= 2 {print $2}'
+            | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')
+
+          if [ ! -z $services ]; then
+            echo "Deployed Cloud Run service(s):" >> $GITHUB_STEP_SUMMARY
+
+            for service in $(echo $services | sed "s/,/ /g")
+            do
+              if [ ! -z $service ]; then
+                region=$(gcloud run services list --platform managed --filter=metadata.name=$service | awk 'NR == 2 {print $3}')
+                gcloud run deploy $service --image $IMAGE --platform managed --region $region
+
+                echo "- Deployed image \`${IMAGE}\` to Cloud Run service \`${service}\` in region \`${region}\`" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          else
+            echo "No Cloud Run service(s) found, deployment skipped." >> $GITHUB_STEP_SUMMARY
+          fi
