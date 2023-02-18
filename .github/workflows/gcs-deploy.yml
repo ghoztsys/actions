@@ -63,6 +63,9 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ inputs.project_id && inputs.project_id || steps.auth.outputs.project_id }}
+      - name: Prepare artifacts
+        if: ${{ inputs.artifacts-name }}
+        run: mkdir -p ${{ inputs.to-path }}
       - name: Download artifacts
         if: ${{ inputs.artifacts-name }}
         uses: actions/download-artifact@v3
