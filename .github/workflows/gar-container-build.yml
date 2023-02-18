@@ -165,6 +165,7 @@ jobs:
           cache-to: type=gha,scope=${{ github.workflow }},mode=max
           context: .
           labels: ${{ steps.metadata.outputs.labels }}
+          provenance: false
           push: true
           secrets: |
             GITHUB_TOKEN=${{ secrets.github-token }}
