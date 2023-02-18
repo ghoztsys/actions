@@ -57,7 +57,7 @@ jobs:
             --platform "managed" \
             --region "${{ inputs.region }}" \
             --filter="${filter:5}" \
-            | awk 'NR >= 2 {print $2}'
+            | awk 'NR >= 2 {print $2}' \
             | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')
 
           if [ ! -z $services ]; then

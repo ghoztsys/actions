@@ -60,9 +60,10 @@ jobs:
           path: ${{ inputs.to-path }}
       - name: Deploy to Google Cloud Storage
         env:
+          PROJECT_ID: ${{ inputs.project-id }}
           PUBLIC_ACL: ${{ inputs.public && 'true' || 'false' }}
         run: |-
-          project_id=${${{ inputs.project-id }}:-$(gcloud config get-value project 2> /dev/null)}
+          project_id=${$PROJECT_ID:-$(gcloud config get-value project)}
           buckets=
 
           for bucket in $(gsutil ls); do
