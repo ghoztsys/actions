@@ -77,7 +77,7 @@ on:
         required: false
 jobs:
   build:
-    name: Container
+    name: Build
     runs-on: ubuntu-latest
     permissions:
       checks: write
@@ -181,7 +181,7 @@ jobs:
           docker stop $process_name
 
           echo "Copying files from ${IMAGE}... OK"
-      - name: Store artifacts
+      - name: Upload artifacts
         if: ${{ inputs.artifacts-path }}
         uses: actions/upload-artifact@v3
         with:
