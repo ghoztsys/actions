@@ -40,10 +40,6 @@ on:
         description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
         required: true
         type: string
-    secrets:
-      github-token:
-        description: GitHub access token for checking out private repos
-        required: false
 jobs:
   deploy:
     name: Deploy
@@ -52,11 +48,6 @@ jobs:
       id-token: write
     environment: ${{ inputs.environment }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-          token: ${{ secrets.github-token && secrets.github-token || github.token}}
       - name: Authenticate Google Cloud
         id: auth
         uses: google-github-actions/auth@v1
