@@ -181,6 +181,7 @@ jobs:
 
           echo "Copying files from ${IMAGE}... from=${from_path}, to=${to_path}"
 
+          mkdir -p $to_path
           docker run -td --rm --name $process_name $IMAGE
           docker cp $process_name:$from_path $to_path
           docker stop $process_name
