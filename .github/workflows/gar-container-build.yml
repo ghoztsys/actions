@@ -109,6 +109,11 @@ jobs:
           password: ${{ steps.auth.outputs.access_token }}
           registry: ${{ inputs.registry }}
           username: oauth2accesstoken
+      - name: Set up Google Cloud SDK
+        if: ${{ steps.auth.outcome == 'success' }}
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ steps.auth.outputs.project_id }}
       - name: Build test target
         id: build-test
         if: ${{ inputs.test-command }}
