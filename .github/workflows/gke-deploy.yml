@@ -84,7 +84,7 @@ jobs:
             for cluster in $(echo $clusters | sed "s/,/ /g")
             do
               if [ ! -z $cluster ]; then
-                IFS=/ read name region_zone <<< $cluster
+                read name region_zone <<< $(IFS='/'; echo $cluster)
                 gcloud container clusters get-credentials $name --zone=$region_zone --quiet
                 kubectl set image deployment/$K8S_DEPLOYMENT $K8S_CONTAINER=$IMAGE --namespace=$K8S_NAMESPACE
 

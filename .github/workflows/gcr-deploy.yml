@@ -50,6 +50,7 @@ jobs:
       - name: Update Cloud Run services
         env:
           IMAGE: ${{ inputs.image }}
+          LABELS: ${{ inputs.labels }}
         run: |-
           labels=($(echo ${{ inputs.labels }} | sed "s/,/ /g"))
           filter=$(printf " AND metadata.labels.%s" "${labels[@]}")
@@ -57,7 +58,7 @@ jobs:
             --platform "managed" \
             --region "${{ inputs.region }}" \
             --filter="${filter:5}" \
-            | awk 'NR >= 2 {print $2}' \
+            | awk 'NR >= 2 {print $2 "/" $3}' \
             | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')
 
           if [ ! -z $services ]; then
@@ -66,10 +67,10 @@ jobs:
             for service in $(echo $services | sed "s/,/ /g")
             do
               if [ ! -z $service ]; then
-                region=$(gcloud run services list --platform managed --filter=metadata.name=$service | awk 'NR == 2 {print $3}')
-                gcloud run deploy $service --image $IMAGE --platform managed --region $region
+                read name region <<< $(IFS='/'; echo $service)
+                gcloud run deploy $name --image $IMAGE --platform managed --region $region
 
-                echo "- Deployed image \`${IMAGE}\` to Cloud Run service \`${service}\` in region \`${region}\`" >> $GITHUB_STEP_SUMMARY
+                echo "- Deployed image \`${IMAGE}\` to Cloud Run service \`${name}\` in region \`${region}\`" >> $GITHUB_STEP_SUMMARY
               fi
             done
           else

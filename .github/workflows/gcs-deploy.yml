@@ -10,6 +10,10 @@ on:
       from-path:
         description: Folder path (relative to working directory) to upload
         type: string
+      header:
+        description: Header to set when uploading files to GCS
+        required: false
+        type: string
       labels:
         description: Comma-delimited labels to match when searching for buckets to deploy to (i.e. "service=foo,environment=bar")
         required: false
@@ -60,16 +64,23 @@ jobs:
           path: ${{ inputs.to-path }}
       - name: Deploy to Google Cloud Storage
         env:
+          LABELS: ${{ inputs.labels }}
           PROJECT_ID: ${{ inputs.project-id }}
           PUBLIC_ACL: ${{ inputs.public && 'true' || 'false' }}
         run: |-
-          project_id=${$PROJECT_ID:-$(gcloud config get-value project)}
+          project_id=${PROJECT_ID:-$(gcloud config get-value project)}
           buckets=
 
           for bucket in $(gsutil ls); do
-            if gsutil label get "${bucket}" | grep -q "\"service\": \"$service_label\"" && gsutil label get "${bucket}" | grep -q "\"environment\": \"$environment_label\""; then
-              buckets=${buckets}${bucket},
-            fi
+            for label in $(echo $LABELS | sed "s/,/ /g"); do
+              read key val <<< $(IFS='='; echo $label)
+
+              if ! gsutil label get $bucket | grep -q "\"${key}\": \"${val}\""; then
+                continue 2
+              fi
+            done
+
+            buckets=${buckets}${bucket},
           done
 
           from_path="${PWD}/${{ inputs.from-path }}*"
@@ -79,7 +90,7 @@ jobs:
             for bucket in $(echo $buckets | sed "s/,/ /g")
             do
               if [ ! -z $bucket ]; then
-                gsutil -m -h "Cache-Control:public,max-age=315360000" cp -Z -r ${from_path} ${bucket}${to_path}
+                gsutil -m -h "${{ inputs.header }}" cp -Z -r ${from_path} ${bucket}${to_path}
 
                 if [ $PUBLIC_ACL = "true" ]; then
                   gsutil acl ch -u AllUsers:R $bucket
