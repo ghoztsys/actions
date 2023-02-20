@@ -82,19 +82,11 @@ jobs:
       artifacts-path: ${{ inputs.artifacts-path }}
       image: ${{ inputs.push && fromJSON(steps.metadata.outputs.json).tags[0] || '' }}
     steps:
-      - name: Verify GitHub token
-        id: verify
-        run: |-
-          if [ "${{ secrets.github-token }}" != '' ]; then
-            echo "token=true" >> $GITHUB_OUTPUT;
-          else
-            echo "token=false" >> $GITHUB_OUTPUT;
-          fi
       - name: Checkout
         uses: actions/checkout@v3
         with:
           submodules: recursive
-          token: ${{ steps.verify.outputs.token == 'true' && secrets.github-token || github.token }}
+          token: ${{ secrets.github-token && secrets.github-token || github.token }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       - name: Authenticate Google Cloud
