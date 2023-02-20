@@ -1,4 +1,4 @@
-# GitHub reusable workflow for creating a release in Sentry.
+# GitHub reusable workflow for publishing a release to Sentry.
 
 on:
   workflow_call:

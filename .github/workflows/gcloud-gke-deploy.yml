@@ -1,5 +1,4 @@
-# GitHub reusable workflow for deploying a container from Google Container
-# Registry or Google Artifact Registry to Google Kubernetes Engine.
+# GitHub reusable workflow for deploying an image to Google Kubernetes Engine.
 
 on:
   workflow_call:
@@ -78,7 +77,7 @@ jobs:
           labels=($(echo $LABELS | sed "s/,/ /g"))
           filter=$(printf " AND nodeConfig.labels.%s" "${labels[@]}")
           clusters=$(gcloud container clusters list \
-            --zone="${REGION_ZONE}" \
+            $(if [ ! -z $REGION_ZONE ]; then echo "--zone $REGION_ZONE"; else echo ""; fi) \
             --filter="${filter:5}" \
             | awk 'NR >= 2 {print $1 "\/" $2}' \
             | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')

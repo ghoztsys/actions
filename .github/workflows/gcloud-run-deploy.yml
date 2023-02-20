@@ -1,5 +1,4 @@
-# GitHub reusable workflow for deploying a container from Google Container
-# Registry or Google Artifact Registry to Google Cloud Run.
+# GitHub reusable workflow for deploying an image to Google Cloud Run.
 
 on:
   workflow_call:
@@ -56,13 +55,14 @@ jobs:
         env:
           IMAGE: ${{ inputs.image }}
           LABELS: ${{ inputs.labels }}
+          REGION: ${{ inputs.region }}
         run: |-
           labels=($(echo ${{ inputs.labels }} | sed "s/,/ /g"))
           filter=$(printf " AND metadata.labels.%s" "${labels[@]}")
           services=$(gcloud run services list \
             --platform "managed" \
-            --region "${{ inputs.region }}" \
             --filter="${filter:5}" \
+            $(if [ ! -z $REGION ]; then echo "--region $REGION"; else echo ""; fi) \
             | awk 'NR >= 2 {print $2 "/" $3}' \
             | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')
 
