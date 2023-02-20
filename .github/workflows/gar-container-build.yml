@@ -62,12 +62,6 @@ on:
       artifacts-path:
         description: Path of the uploaded artifacts (relative to working directory)
         value: ${{ jobs.build.outputs.artifacts-path }}
-      build-number:
-        description: Build number of this app
-        value: ${{ jobs.build.outputs.build-number }}
-      build-version:
-        description: Build version of this app
-        value: ${{ jobs.build.outputs.build-version }}
       image:
         description: The built Docker image
         value: ${{ jobs.build.outputs.image }}
@@ -81,6 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       checks: write
+      contents: read
       id-token: write
     outputs:
       artifacts-name: ${{ inputs.artifacts-path && inputs.artifacts-name || '' }}
@@ -95,17 +90,11 @@ jobs:
           else
             echo "token=false" >> $GITHUB_OUTPUT;
           fi
-      - name: Checkout (w/ token)
-        if: ${{ steps.verify.outputs.token == 'true' }}
+      - name: Checkout
         uses: actions/checkout@v3
         with:
           submodules: recursive
-          token: ${{ secrets.github-token }}
-      - name: Checkout (w/o token)
-        if: ${{ steps.verify.outputs.token != 'true' }}
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
+          token: ${{ steps.verify.outputs.token == 'true' && secrets.github-token || github.token }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       - name: Authenticate Google Cloud
