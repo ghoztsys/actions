@@ -119,7 +119,7 @@ jobs:
           context: .
           load: true
           secrets: |
-            GITHUB_TOKEN=${{ secrets.github-token }}
+            ${{ secrets.github-token && format('GITHUB_TOKEN={0}', secrets.github-token) || '' }}
             ${{ inputs.build-secrets }}
           tags: ${{ inputs.image-name }}:test
           target: test
@@ -136,7 +136,7 @@ jobs:
           context: .
           load: true
           secrets: |
-            GITHUB_TOKEN=${{ secrets.github-token }}
+            ${{ secrets.github-token && format('GITHUB_TOKEN={0}', secrets.github-token) || '' }}
             ${{ inputs.build-secrets }}
           tags: ${{ inputs.image-name }}:prod
           target: prod
@@ -163,7 +163,7 @@ jobs:
           provenance: false
           push: true
           secrets: |
-            GITHUB_TOKEN=${{ secrets.github-token }}
+            ${{ secrets.github-token && format('GITHUB_TOKEN={0}', secrets.github-token) || '' }}
             ${{ inputs.build-secrets }}
           tags: ${{ steps.metadata.outputs.tags }}
       - name: Copy artifacts
