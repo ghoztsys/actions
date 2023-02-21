@@ -1,4 +1,4 @@
-# GitHub reusable workflow for building, testing and pushing a Docker container
+# GitHub reusable workflow for building, testing and pushing a container image
 # to Google Artifact Registry or Google Container Registry.
 
 on:

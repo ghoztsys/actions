@@ -1,4 +1,4 @@
-# GitHub reusable workflow for deploying a directory to Google Cloud Storage.
+# GitHub reusable workflow for uploading artifacts to Google Cloud Storage.
 
 on:
   workflow_call:
@@ -37,14 +37,23 @@ on:
         description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
         required: true
         type: string
+    outputs:
+      console-url:
+        description: URL to the uploaded artifacts on Google Cloud console
+        value: ${{ jobs.release.outputs.console_url }}
+      deployment-url:
+        description: URL to the uploaded artifacts
+        value: ${{ jobs.release.outputs.deployment_url }}
 jobs:
-  deploy:
-    name: Deploy
+  release:
+    name: Release
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-    environment: ${{ inputs.environment }}
+    outputs:
+      console-url: ${{ steps.release.outputs.console-url }}
+      deployment-url: ${{ steps.release.outputs.deployment-url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -67,7 +76,8 @@ jobs:
         with:
           name: ${{ inputs.artifacts-name }}
           path: ${{ inputs.to-path }}
-      - name: Deploy to Google Cloud Storage
+      - name: Release to Google Cloud Storage
+        id: release
         env:
           LABELS: ${{ inputs.labels }}
           PROJECT_ID: ${{ inputs.project-id }}
@@ -101,7 +111,12 @@ jobs:
                   gsutil acl ch -u AllUsers:R $bucket
                 fi
 
-                echo "- Uploaded \`${from_path}\` to \`${bucket}${to_path}\`" >> $GITHUB_STEP_SUMMARY
+                console_url="https://console.cloud.google.com/storage/browser/${bucket}${to_path}"
+                deployment_url="gs://${bucket}${to_path}"
+
+                echo "- Uploaded \`${from_path}\` to [\`${bucket}${to_path}\`]($console_url), url: [${deployment_url}](${deployment_url})" >> $GITHUB_STEP_SUMMARY
+                echo "console-url=${console_url}" >> $GITHUB_OUTPUT
+                echo "deployment-url=${deployment_url}" >> $GITHUB_OUTPUT
               fi
             done
           else

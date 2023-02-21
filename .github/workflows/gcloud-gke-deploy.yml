@@ -1,4 +1,5 @@
-# GitHub reusable workflow for deploying an image to Google Kubernetes Engine.
+# GitHub reusable workflow for deploying a container image to Google Kubernetes
+# Engine.
 
 on:
   workflow_call:
@@ -12,8 +13,7 @@ on:
         required: false
         type: string
       environment:
-        description: GitHub deploy environment
-        required: false
+        description: GitHub deploy environment name
         type: string
       k8s-container:
         description: Kubernetes container name
@@ -39,6 +39,13 @@ on:
         description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
         required: true
         type: string
+    outputs:
+      console-url:
+        description: URL of the last deployed Kubernetes cluster on Google Cloud console
+        value: ${{ jobs.deploy.outputs.console-url }}
+      deployment-url:
+        description: URL of the last deployed Kubernetes cluster
+        value: ${{ jobs.deploy.outputs.deployment-url }}
 jobs:
   deploy:
     name: Deploy
@@ -46,7 +53,12 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    environment: ${{ inputs.environment }}
+    outputs:
+      console-url: ${{ steps.deploy.outputs.console-url }}
+      deployment-url: ${{ steps.deploy.outputs.deployment-url }}
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.deploy.outputs.url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -79,7 +91,7 @@ jobs:
           clusters=$(gcloud container clusters list \
             $(if [ ! -z $REGION_ZONE ]; then echo "--zone $REGION_ZONE"; else echo ""; fi) \
             --filter="${filter:5}" \
-            | awk 'NR >= 2 {print $1 "\/" $2}' \
+            | awk 'NR >= 2 {print $1 "|" $2 "|" $4}' \
             | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')
 
           if [ ! -z $clusters ]; then
@@ -88,11 +100,15 @@ jobs:
             for cluster in $(echo $clusters | sed "s/,/ /g")
             do
               if [ ! -z $cluster ]; then
-                read name region_zone <<< $(IFS='/'; echo $cluster)
+                read name region_zone url <<< $(IFS='|'; echo $cluster)
                 gcloud container clusters get-credentials $name --zone=$region_zone --quiet
                 kubectl set image deployment/$K8S_DEPLOYMENT $K8S_CONTAINER=$IMAGE --namespace=$K8S_NAMESPACE
 
-                echo "- Updated \`${K8S_CONTAINER}\` to \`${IMAGE}\` in \`deployment/${K8S_DEPLOYMENT}\` for cluster \`${name}\` in region zone \`${region_zone}\`" >> $GITHUB_STEP_SUMMARY
+                console_url="https://console.cloud.google.com/kubernetes/clusters/details/${region_zone}/${name}"
+
+                echo "- Updated \`${K8S_CONTAINER}\` to \`${IMAGE}\` in \`deployment/${K8S_DEPLOYMENT}\` for cluster [\`${name}\`](${console_url}) in region zone \`${region_zone}\`, url: [${url}](${url})" >> $GITHUB_STEP_SUMMARY
+                echo "console-url=${console_url}" >> $GITHUB_OUTPUT
+                echo "deployment-url=${url}" >> $GITHUB_OUTPUT
               fi
             done
           else

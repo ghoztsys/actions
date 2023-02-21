@@ -1,11 +1,10 @@
-# GitHub reusable workflow for deploying an image to Google Cloud Run.
+# GitHub reusable workflow for deploying a container image to Google Cloud Run.
 
 on:
   workflow_call:
     inputs:
       environment:
-        description: GitHub deploy environment
-        required: false
+        description: GitHub deploy environment name
         type: string
       image:
         description: Docker image to deploy
@@ -27,6 +26,13 @@ on:
         description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
         required: true
         type: string
+    outputs:
+      console-url:
+        description: URL of the last deployed Cloud Run service on Google Cloud console
+        value: ${{ jobs.deploy.outputs.console-url }}
+      deployment-url:
+        description: URL of the last deployed Cloud Run service
+        value: ${{ jobs.deploy.outputs.deployment-url }}
 jobs:
   deploy:
     name: Deploy
@@ -34,7 +40,12 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    environment: ${{ inputs.environment }}
+    outputs:
+      console-url: ${{ steps.deploy.outputs.console-url }}
+      deployment-url: ${{ steps.deploy.outputs.deployment-url }}
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.deploy.outputs.deployment-url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -51,7 +62,8 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ steps.auth.outputs.project_id }}
-      - name: Update Cloud Run services
+      - name: Deploy Cloud Run services
+        id: deploy
         env:
           IMAGE: ${{ inputs.image }}
           LABELS: ${{ inputs.labels }}
@@ -60,10 +72,10 @@ jobs:
           labels=($(echo ${{ inputs.labels }} | sed "s/,/ /g"))
           filter=$(printf " AND metadata.labels.%s" "${labels[@]}")
           services=$(gcloud run services list \
-            --platform "managed" \
+            --platform managed \
             --filter="${filter:5}" \
             $(if [ ! -z $REGION ]; then echo "--region $REGION"; else echo ""; fi) \
-            | awk 'NR >= 2 {print $2 "/" $3}' \
+            | awk 'NR >= 2 {print $2 "|" $3 "|" $4}' \
             | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')
 
           if [ ! -z $services ]; then
@@ -72,10 +84,14 @@ jobs:
             for service in $(echo $services | sed "s/,/ /g")
             do
               if [ ! -z $service ]; then
-                read name region <<< $(IFS='/'; echo $service)
+                read name region url <<< $(IFS='|'; echo $service)
                 gcloud run deploy $name --image $IMAGE --platform managed --region $region
 
-                echo "- Deployed image \`${IMAGE}\` to Cloud Run service \`${name}\` in region \`${region}\`" >> $GITHUB_STEP_SUMMARY
+                console_url="https://console.cloud.google.com/run/detail/${region}/${name}"
+
+                echo "- Deployed container image \`${IMAGE}\` to Cloud Run service [\`${name}\`](${console_url}) in region \`${region}\`, url: [${url}](${url})" >> $GITHUB_STEP_SUMMARY
+                echo "console-url=${console_url}" >> $GITHUB_OUTPUT
+                echo "deployment-url=${url}" >> $GITHUB_OUTPUT
               fi
             done
           else
