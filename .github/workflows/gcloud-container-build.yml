@@ -199,4 +199,5 @@ jobs:
       - name: Append summary
         if: ${{ inputs.push }}
         run: |-
-          echo "Pushed image \`${{ fromJSON(steps.metadata.outputs.json).tags[0] }}\` to registry \`${{ inputs.registry }}\`." >> $GITHUB_STEP_SUMMARY
+          image=${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
+          echo "Pushed image [\`${image}\`](https://${image}) to registry \`${{ inputs.registry }}\`." >> $GITHUB_STEP_SUMMARY
