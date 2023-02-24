@@ -77,6 +77,7 @@ jobs:
           install_components: gke-gcloud-auth-plugin
           project_id: ${{ steps.auth.outputs.project_id }}
       - name: Update clusters
+        id: deploy
         env:
           IMAGE: ${{ inputs.image }}
           K8S_CONTAINER: ${{ inputs.k8s-container }}
