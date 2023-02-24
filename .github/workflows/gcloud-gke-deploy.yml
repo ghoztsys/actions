@@ -58,7 +58,7 @@ jobs:
       deployment-url: ${{ steps.deploy.outputs.deployment-url }}
     environment:
       name: ${{ inputs.environment }}
-      url: ${{ steps.deploy.outputs.url }}
+      url: ${{ steps.deploy.outputs.console-url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
