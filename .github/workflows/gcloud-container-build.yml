@@ -20,6 +20,10 @@ on:
         description: List of build-time secrets
         required: false
         type: string
+      file:
+        default: Dockerfile
+        description: Path to the Dockerfile (defaults to {context}/Dockerfile)
+        type: string
       push:
         default: false
         description: Specifies if pushing image to registry
@@ -117,6 +121,7 @@ jobs:
           cache-from: type=gha,scope=${{ github.workflow }}
           cache-to: type=gha,scope=${{ github.workflow }},mode=max
           context: .
+          file: ${{ inputs.file }}
           load: true
           secrets: |
             ${{ secrets.github-token && format('GITHUB_TOKEN={0}', secrets.github-token) || '' }}
@@ -134,6 +139,7 @@ jobs:
           cache-from: type=gha,scope=${{ github.workflow }}
           cache-to: type=gha,scope=${{ github.workflow }},mode=max
           context: .
+          file: ${{ inputs.file }}
           load: true
           secrets: |
             ${{ secrets.github-token && format('GITHUB_TOKEN={0}', secrets.github-token) || '' }}
@@ -159,6 +165,7 @@ jobs:
           cache-from: type=gha,scope=${{ github.workflow }}
           cache-to: type=gha,scope=${{ github.workflow }},mode=max
           context: .
+          file: ${{ inputs.file }}
           labels: ${{ steps.metadata.outputs.labels }}
           provenance: false
           push: true
