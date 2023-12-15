@@ -9,7 +9,7 @@ on:
         description: Artifacts name
         type: string
       artifacts-path:
-        description: Artifacts path (relative to working directory)
+        description: Artifacts path (absolute or relative to working directory)
         required: false
         type: string
       build-args:
@@ -20,9 +20,9 @@ on:
         description: List of build-time secrets
         required: false
         type: string # newline-delimited string
-      file:
+      dockerfile-path:
         default: Dockerfile
-        description: Path to the Dockerfile (defaults to {context}/Dockerfile)
+        description: Path to the Dockerfile (relative to context, defaults to `Dockerfile`)
         type: string
       push:
         default: false
@@ -129,7 +129,7 @@ jobs:
           cache-from: type=gha,scope=${{ github.workflow }}
           cache-to: type=gha,scope=${{ github.workflow }},mode=max
           context: .
-          file: ${{ inputs.file }}
+          file: ${{ inputs.dockerfile-path }}
           load: true
           secrets: |
             ${{ secrets.github-token && format('GITHUB_TOKEN={0}', secrets.github-token) || '' }}
