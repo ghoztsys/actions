@@ -15,11 +15,11 @@ on:
       build-args:
         description: List of build-time variables
         required: false
-        type: string
+        type: string # newline-delimited string
       build-secrets:
         description: List of build-time secrets
         required: false
-        type: string
+        type: string # newline-delimited string
       file:
         default: Dockerfile
         description: Path to the Dockerfile (defaults to {context}/Dockerfile)
@@ -34,6 +34,10 @@ on:
         type: string
       image-tag-suffix:
         description: Docker image tag suffix
+        required: false
+        type: string
+      prebuild-command:
+        description: Command for prebuilding
         required: false
         type: string
       registry:
@@ -91,6 +95,9 @@ jobs:
         with:
           submodules: recursive
           token: ${{ secrets.github-token && secrets.github-token || github.token }}
+      - name: Prebuild
+        if: ${{ inputs.prebuild-command }}
+        run: ${{ inputs.prebuild-command }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       - name: Authenticate Google Cloud
@@ -118,6 +125,7 @@ jobs:
         if: ${{ inputs.test-command }}
         uses: docker/build-push-action@v4
         with:
+          build-args: ${{ inputs.build-args }}
           cache-from: type=gha,scope=${{ github.workflow }}
           cache-to: type=gha,scope=${{ github.workflow }},mode=max
           context: .
@@ -157,7 +165,7 @@ jobs:
             type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
             type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
             type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
-      - name: Push image release to registry
+      - name: Push release image to registry
         uses: docker/build-push-action@v4
         if: ${{ inputs.push }}
         with:
