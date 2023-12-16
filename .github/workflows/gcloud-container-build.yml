@@ -79,7 +79,7 @@ on:
         value: ${{ jobs.build.outputs.image }}
       image-artifact-name:
         description: Name of the uploaded artifact of the built image
-        value: ${{ inputs.upload-image-artifact && format('{0}-artifact', inputs.image-name) || '' }}
+        value: ${{ jobs.build.outputs.image-artifact-name }}
       image-artifact-path:
         description: Path of the uploaded artifact of the built image (absolute or relative to working directory)
         value: ${{ jobs.build.outputs.image-artifact-file && format('/tmp/{0}', jobs.build.outputs.image-artifact-file) || '' }}
@@ -97,6 +97,7 @@ jobs:
       id-token: write
     outputs:
       image: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
+      image-artifact-name: ${{ inputs.upload-image-artifact && format('{0}-artifact', github.job) || '' }}
       image-artifact-file: ${{ inputs.upload-image-artifact && format('{0}.tar', github.job) || '' }}
     steps:
       - name: Checkout
@@ -202,7 +203,7 @@ jobs:
         if: ${{ inputs.upload-image-artifact }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.image-name }}-artifact
+          name: ${{ github.job }}-artifact
           path: /tmp/${{ github.job }}.tar
       - name: Generate test report
         if: ${{ inputs.test-command && inputs.test-reporter }}
