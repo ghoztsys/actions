@@ -4,14 +4,14 @@
 on:
   workflow_call:
     inputs:
-      artifacts-name:
-        default: build-artifacts
-        description: Artifacts name
+      build-artifact-name:
+        default: build-artifact
+        description: Name of the artifact to upload from inside the built container
         type: string
-      artifacts-path:
-        description: Artifacts path (absolute or relative to working directory)
+      build-artifact-path:
+        description: Path(s) of the artifact to upload from inside the built container (absolute or relative to working directory)
         required: false
-        type: string
+        type: string # newline-delimited string for each path
       build-args:
         description: List of build-time variables
         required: false
@@ -59,20 +59,30 @@ on:
         description: Test reporter type
         required: false
         type: string
+      upload-image-artifact:
+        default: false
+        description: Specifies if the builkt image should be uploaded as an artifact
+        type: boolean
       workload-identity-provider:
         description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
         required: false
         type: string
     outputs:
-      artifacts-name:
-        description: Name of the uploaded artifacts
-        value: ${{ jobs.build.outputs.artifacts-name }}
-      artifacts-path:
-        description: Path of the uploaded artifacts (relative to working directory)
-        value: ${{ jobs.build.outputs.artifacts-path }}
+      build-artifact-name:
+        description: Name of the uploaded artifact from inside the built container
+        value: ${{ inputs.build-artifact-path && inputs.build-artifact-name || '' }}
+      build-artifact-path:
+        description: Path of the uploaded artifact from inside the built container (absolute or relative to working directory)
+        value: ${{ inputs.build-artifact-path }}
       image:
         description: The built Docker image
         value: ${{ jobs.build.outputs.image }}
+      image-artifact-name:
+        description: Name of the uploaded artifact of the built image
+        value: ${{ inputs.upload-image-artifact && format('{0}-artifact', inputs.image-name) || '' }}
+      image-artifact-path:
+        description: Path of the uploaded artifact of the built image (absolute or relative to working directory)
+        value: ${{ inputs.upload-image-artifact && format('/tmp/{0}.tar', inputs.image-name) || '' }}
     secrets:
       github-token:
         description: GitHub personal access token to use when checking out private repositories
@@ -86,8 +96,6 @@ jobs:
       contents: read
       id-token: write
     outputs:
-      artifacts-name: ${{ inputs.artifacts-path && inputs.artifacts-name || '' }}
-      artifacts-path: ${{ inputs.artifacts-path }}
       image: ${{ inputs.push && fromJSON(steps.metadata.outputs.json).tags[0] || '' }}
     steps:
       - name: Checkout
@@ -139,55 +147,40 @@ jobs:
       - name: Run tests
         if: ${{ inputs.test-command }}
         run: IMAGE=${{ fromJSON(steps.build-test.outputs.metadata)['image.name'] }} ${{ inputs.test-command }}
-      - name: Build prod target
-        id: build-prod
-        uses: docker/build-push-action@v4
-        with:
-          build-args: ${{ inputs.build-args }}
-          cache-from: type=gha,scope=${{ github.workflow }}
-          cache-to: type=gha,scope=${{ github.workflow }},mode=max
-          context: .
-          file: ${{ inputs.file }}
-          load: true
-          secrets: |
-            ${{ secrets.github-token && format('GITHUB_TOKEN={0}', secrets.github-token) || '' }}
-            ${{ inputs.build-secrets }}
-          tags: ${{ inputs.image-name }}:prod
-          target: prod
       - name: Set up release metadata
-        if: ${{ inputs.push }}
         id: metadata
         uses: docker/metadata-action@v4
         with:
-          images: ${{ format('{0}/', inputs.registry) || '' }}${{ steps.auth.outputs.project_id }}/${{ inputs.image-name }}
+          images: ${{ inputs.push && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.image-name }}
           tags: |
             type=ref,event=pr,suffix=${{ inputs.image-tag-suffix }}
             type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
             type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
             type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
-      - name: Push release image to registry
+      - name: Build release image
+        id: build-release
         uses: docker/build-push-action@v4
-        if: ${{ inputs.push }}
         with:
           build-args: ${{ inputs.build-args }}
           cache-from: type=gha,scope=${{ github.workflow }}
           cache-to: type=gha,scope=${{ github.workflow }},mode=max
           context: .
-          file: ${{ inputs.file }}
+          file: ${{ inputs.dockerfile-path }}
           labels: ${{ steps.metadata.outputs.labels }}
+          outputs: type=docker,dest=/tmp/${{ inputs.image-name }}.tar
           provenance: false
-          push: true
+          push: ${{ inputs.push }}
           secrets: |
             ${{ secrets.github-token && format('GITHUB_TOKEN={0}', secrets.github-token) || '' }}
             ${{ inputs.build-secrets }}
           tags: ${{ steps.metadata.outputs.tags }}
-      - name: Copy artifacts
-        if: ${{ inputs.artifacts-path }}
+      - name: Copy build artifact
+        if: ${{ inputs.build-artifact-path }}
         env:
-          IMAGE: ${{ fromJSON(steps.build-prod.outputs.metadata)['image.name'] }}
+          IMAGE: ${{ fromJSON(steps.build-release.outputs.metadata)['image.name'] }}
         run: |-
-          from_path="/var/app/${{ inputs.artifacts-path }}"
-          to_path="${PWD}/${{ inputs.artifacts-path }}"
+          from_path="/var/app/${{ inputs.build-artifact-path }}"
+          to_path="${PWD}/${{ inputs.build-artifact-path }}"
           process_name="tmp"
 
           echo "Copying files from ${IMAGE}... from=${from_path}, to=${to_path}"
@@ -198,12 +191,18 @@ jobs:
           docker stop $process_name
 
           echo "Copying files from ${IMAGE}... OK"
-      - name: Upload artifacts
-        if: ${{ inputs.artifacts-path }}
-        uses: actions/upload-artifact@v3
+      - name: Upload build artifact
+        if: ${{ inputs.build-artifact-path }}
+        uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.artifacts-name }}
-          path: ${{ inputs.artifacts-path }}
+          name: ${{ inputs.build-artifact-name }}
+          path: ${{ inputs.build-artifact-path }}
+      - name: Upload image artifact
+        if: ${{ inputs.upload-image-artifact }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.image-name }}-artifact
+          path: /tmp/${{ inputs.image-name }}.tar
       - name: Generate test report
         if: ${{ inputs.test-command && inputs.test-reporter }}
         uses: dorny/test-reporter@v1
