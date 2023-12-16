@@ -4,16 +4,20 @@
 on:
   workflow_call:
     inputs:
-      build-artifact-name:
-        default: build-artifact
-        description: Name of the artifact to upload from inside the built container
-        type: string
-      build-artifact-path:
-        description: Path(s) of the artifact to upload from inside the built container (absolute or relative to working directory)
+      build-artifact-dir:
+        description: Directory of built files from the container to upload as artifact (relative to the container's working directory)
         required: false
         type: string # newline-delimited string for each path
+      build-artifact-name:
+        default: build-artifact
+        description: Name of the built files artifact to be uploaded
+        type: string
+      build-artifact-working-dir:
+        default: /var/app
+        description: Working directory of the container to determine where to upload built files as artifact (absolute path with no trailing slash)
+        type: string
       build-args:
-        description: List of build-time variables
+        description: List of build-time arguments
         required: false
         type: string # newline-delimited string
       build-secrets:
@@ -26,7 +30,7 @@ on:
         type: string
       push:
         default: false
-        description: Specifies if pushing image to registry
+        description: Specifies if the built image should be pushed to the specified registry
         type: boolean
       image-name:
         default: ${{ github.repository }}
@@ -34,10 +38,6 @@ on:
         type: string
       image-tag-suffix:
         description: Docker image tag suffix
-        required: false
-        type: string
-      prebuild-command:
-        description: Command for prebuilding
         required: false
         type: string
       registry:
@@ -49,7 +49,7 @@ on:
         required: false
         type: string
       test-command:
-        description: Command for running tests
+        description: Command for running tests after the build step
         type: string
       test-report-path:
         description: Path to the test report
@@ -59,30 +59,37 @@ on:
         description: Test reporter type
         required: false
         type: string
-      upload-image-artifact:
-        default: false
-        description: Specifies if the builkt image should be uploaded as an artifact
-        type: boolean
+      image-artifact-dir:
+        description: Directory to upload the built image from (absolute or relative to working directory)
+        type: string
+        required: false
+      image-artifact-name:
+        default: image-artifact
+        description: Name of the built image artifact to be uploaded
+        type: string
       workload-identity-provider:
         description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
         required: false
         type: string
     outputs:
       build-artifact-name:
-        description: Name of the uploaded artifact from inside the built container
-        value: ${{ inputs.build-artifact-path && inputs.build-artifact-name || '' }}
-      build-artifact-path:
-        description: Path of the uploaded artifact from inside the built container (absolute or relative to working directory)
-        value: ${{ inputs.build-artifact-path }}
+        description: Name of the uploaded artifact of built files
+        value: ${{ inputs.build-artifact-dir && inputs.build-artifact-name || '' }}
+      build-artifact-dir:
+        description: Directory of the uploaded artifact of built files (relative to working directory)
+        value: ${{ inputs.build-artifact-dir }}
       image:
         description: The built Docker image
         value: ${{ jobs.build.outputs.image }}
+      image-artifact-dir:
+        description: Directory of the uploaded artifact of the built image (absolute or relative to working directory)
+        value: ${{ inputs.image-artifact-dir }}
+      image-artifact-file:
+        description: File of the uploaded artifact of the built image (absolute or relative to working directory)
+        value: ${{ inputs.image-artifact-dir && format('{0}/{1}.tar', inputs.image-artifact-dir, inputs.image-artifact-name) || '' }}
       image-artifact-name:
         description: Name of the uploaded artifact of the built image
-        value: ${{ jobs.build.outputs.image-artifact-name }}
-      image-artifact-path:
-        description: Path of the uploaded artifact of the built image (absolute or relative to working directory)
-        value: ${{ jobs.build.outputs.image-artifact-file && format('/tmp/{0}', jobs.build.outputs.image-artifact-file) || '' }}
+        value: ${{ inputs.image-artifact-dir && inputs.image-artifact-name || '' }}
     secrets:
       github-token:
         description: GitHub personal access token to use when checking out private repositories
@@ -97,17 +104,12 @@ jobs:
       id-token: write
     outputs:
       image: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
-      image-artifact-name: ${{ inputs.upload-image-artifact && format('{0}-artifact', github.job) || '' }}
-      image-artifact-file: ${{ inputs.upload-image-artifact && format('{0}.tar', github.job) || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           submodules: recursive
           token: ${{ secrets.github-token && secrets.github-token || github.token }}
-      - name: Prebuild
-        if: ${{ inputs.prebuild-command }}
-        run: ${{ inputs.prebuild-command }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       - name: Authenticate Google Cloud
@@ -169,7 +171,7 @@ jobs:
           context: .
           file: ${{ inputs.dockerfile-path }}
           labels: ${{ steps.metadata.outputs.labels }}
-          outputs: type=docker,dest=/tmp/${{ github.job }}.tar
+          outputs: type=docker,dest=${{ inputs.image-artifact-dir && format('{0}/{1}.tar', inputs.image-artifact-dir, inputs.image-artifact-name) || '' }}
           provenance: false
           push: ${{ inputs.push }}
           secrets: |
@@ -177,12 +179,12 @@ jobs:
             ${{ inputs.build-secrets }}
           tags: ${{ steps.metadata.outputs.tags }}
       - name: Copy build artifact
-        if: ${{ inputs.build-artifact-path }}
+        if: ${{ inputs.build-artifact-dir }}
         env:
           IMAGE: ${{ fromJSON(steps.build-release.outputs.metadata)['image.name'] }}
         run: |-
-          from_path="/var/app/${{ inputs.build-artifact-path }}"
-          to_path="${PWD}/${{ inputs.build-artifact-path }}"
+          from_path="${{ inputs.build-artifact-working-dir }}/${{ inputs.build-artifact-dir }}"
+          to_path="${PWD}/${{ inputs.build-artifact-dir }}"
           process_name="tmp"
 
           echo "Copying files from ${IMAGE}... from=${from_path}, to=${to_path}"
@@ -194,17 +196,17 @@ jobs:
 
           echo "Copying files from ${IMAGE}... OK"
       - name: Upload build artifact
-        if: ${{ inputs.build-artifact-path }}
+        if: ${{ inputs.build-artifact-dir }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.build-artifact-name }}
-          path: ${{ inputs.build-artifact-path }}
+          path: ${{ inputs.build-artifact-dir }}
       - name: Upload image artifact
-        if: ${{ inputs.upload-image-artifact }}
+        if: ${{ inputs.image-artifact-dir }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-artifact
-          path: /tmp/${{ github.job }}.tar
+          name: ${{ inputs.image-artifact-name }}
+          path: ${{ inputs.image-artifact-dir }}/${{ inputs.image-artifact-name }}.tar
       - name: Generate test report
         if: ${{ inputs.test-command && inputs.test-reporter }}
         uses: dorny/test-reporter@v1
