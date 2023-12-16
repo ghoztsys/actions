@@ -82,7 +82,7 @@ on:
         value: ${{ inputs.upload-image-artifact && format('{0}-artifact', inputs.image-name) || '' }}
       image-artifact-path:
         description: Path of the uploaded artifact of the built image (absolute or relative to working directory)
-        value: ${{ inputs.upload-image-artifact && format('/tmp/{0}.tar', inputs.image-name) || '' }}
+        value: ${{ jobs.build.outputs.image-artifact-file && format('/tmp/{0}', jobs.build.outputs.image-artifact-file) || '' }}
     secrets:
       github-token:
         description: GitHub personal access token to use when checking out private repositories
@@ -96,7 +96,8 @@ jobs:
       contents: read
       id-token: write
     outputs:
-      image: ${{ inputs.push && fromJSON(steps.metadata.outputs.json).tags[0] || '' }}
+      image: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
+      image-artifact-file: ${{ inputs.upload-image-artifact && format('{0}.tar', github.job) || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -167,7 +168,7 @@ jobs:
           context: .
           file: ${{ inputs.dockerfile-path }}
           labels: ${{ steps.metadata.outputs.labels }}
-          outputs: type=docker,dest=/tmp/${{ inputs.image-name }}.tar
+          outputs: type=docker,dest=/tmp/${{ github.job }}.tar
           provenance: false
           push: ${{ inputs.push }}
           secrets: |
@@ -202,7 +203,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.image-name }}-artifact
-          path: /tmp/${{ inputs.image-name }}.tar
+          path: /tmp/${{ github.job }}.tar
       - name: Generate test report
         if: ${{ inputs.test-command && inputs.test-reporter }}
         uses: dorny/test-reporter@v1
