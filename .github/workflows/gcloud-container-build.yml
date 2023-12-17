@@ -121,22 +121,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ steps.auth.outputs.project_id }}
-      - name: Build prod target
-        id: build-prod
-        uses: docker/build-push-action@v4
-        with:
-          build-args: ${{ inputs.build-args }}
-          cache-from: type=gha,scope=${{ github.workflow }}
-          cache-to: type=gha,scope=${{ github.workflow }},mode=max
-          context: .
-          file: ${{ inputs.dockerfile-path }}
-          outputs: type=docker,dest=${{ inputs.image-artifact-dir && format('{0}/{1}.tar', inputs.image-artifact-dir, inputs.image-artifact-name) || '' }}
-          secrets: |
-            ${{ secrets.github-token && format('GITHUB_TOKEN={0}', secrets.github-token) || '' }}
-            ${{ inputs.build-secrets }}
-          tags: ${{ inputs.image-name }}:prod
-          target: prod
-      - name: Set up release metadata
+      - name: Set up metadata
         id: metadata
         uses: docker/metadata-action@v4
         with:
@@ -146,7 +131,7 @@ jobs:
             type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
             type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
             type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
-      - name: Build release image
+      - name: Build image
         id: build
         uses: docker/build-push-action@v4
         with:
@@ -156,6 +141,7 @@ jobs:
           context: .
           file: ${{ inputs.dockerfile-path }}
           labels: ${{ steps.metadata.outputs.labels }}
+          outputs: ${{ !inputs.push && inputs.image-artifact-dir && format('type=docker,dest={0}/{1}.tar', inputs.image-artifact-dir, inputs.image-artifact-name) || '' }}
           provenance: false
           push: ${{ inputs.push }}
           secrets: |
