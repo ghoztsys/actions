@@ -151,7 +151,7 @@ jobs:
       - name: Copy build artifact
         if: ${{ inputs.build-artifact-dir }}
         env:
-          IMAGE: ${{ fromJSON(steps.build.outputs.metadata)['image.name'] }}
+          IMAGE: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
         run: |-
           from_path="${{ inputs.build-artifact-working-dir }}/${{ inputs.build-artifact-dir }}"
           to_path="${PWD}/${{ inputs.build-artifact-dir }}"
