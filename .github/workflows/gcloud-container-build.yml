@@ -48,17 +48,6 @@ on:
         description: GCP service account to impersonate by the current Workload Identity
         required: false
         type: string
-      test-command:
-        description: Command for running tests after the build step
-        type: string
-      test-report-path:
-        description: Path to the test report
-        required: false
-        type: string
-      test-reporter:
-        description: Test reporter type
-        required: false
-        type: string
       image-artifact-dir:
         description: Directory to upload the built image from (absolute or relative to working directory)
         type: string
@@ -132,26 +121,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ steps.auth.outputs.project_id }}
-      - name: Build test target
-        id: build-test
-        if: ${{ inputs.test-command }}
-        uses: docker/build-push-action@v4
-        with:
-          build-args: ${{ inputs.build-args }}
-          cache-from: type=gha,scope=${{ github.workflow }}
-          cache-to: type=gha,scope=${{ github.workflow }},mode=max
-          context: .
-          file: ${{ inputs.dockerfile-path }}
-          load: true
-          secrets: |
-            ${{ secrets.github-token && format('GITHUB_TOKEN={0}', secrets.github-token) || '' }}
-            ${{ inputs.build-secrets }}
-          tags: ${{ inputs.image-name }}:test
-          target: test
-      - name: Run tests
-        if: ${{ inputs.test-command }}
-        run: IMAGE=${{ fromJSON(steps.build-test.outputs.metadata)['image.name'] }} ${{ inputs.test-command }}
-      - name: Set up release metadata
+      - name: Set up metadata
         id: metadata
         uses: docker/metadata-action@v4
         with:
@@ -161,8 +131,8 @@ jobs:
             type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
             type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
             type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
-      - name: Build release image
-        id: build-release
+      - name: Build image
+        id: build
         uses: docker/build-push-action@v4
         with:
           build-args: ${{ inputs.build-args }}
@@ -181,7 +151,7 @@ jobs:
       - name: Copy build artifact
         if: ${{ inputs.build-artifact-dir }}
         env:
-          IMAGE: ${{ fromJSON(steps.build-release.outputs.metadata)['image.name'] }}
+          IMAGE: ${{ fromJSON(steps.build.outputs.metadata)['image.name'] }}
         run: |-
           from_path="${{ inputs.build-artifact-working-dir }}/${{ inputs.build-artifact-dir }}"
           to_path="${PWD}/${{ inputs.build-artifact-dir }}"
@@ -207,13 +177,6 @@ jobs:
         with:
           name: ${{ inputs.image-artifact-name }}
           path: ${{ inputs.image-artifact-dir }}/${{ inputs.image-artifact-name }}.tar
-      - name: Generate test report
-        if: ${{ inputs.test-command && inputs.test-reporter }}
-        uses: dorny/test-reporter@v1
-        with:
-          name: Test Report
-          path: ${{ inputs.test-report-path }}
-          reporter: ${{ inputs.test-reporter }}
       - name: Append summary
         if: ${{ inputs.push }}
         run: |-
