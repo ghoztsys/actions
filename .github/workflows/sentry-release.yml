@@ -43,7 +43,7 @@ jobs:
           token: ${{ github.token }}
       - name: Download artifacts
         if: ${{ inputs.sourcemaps-artifacts-name }}
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.sourcemaps-artifacts-name }}
           path: ${{ inputs.sourcemaps-path }}
