@@ -103,7 +103,7 @@ jobs:
       id-token: write
     outputs:
       image: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
-      repository: ${{ inputs.push && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.namespace && format('{0}/', inputs.namespace) || '' }}
+      repository: ${{ inputs.push && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.namespace && format('{0}', inputs.namespace) || '' }}
       version: ${{ steps.metadata.outputs.version }}
     steps:
       - name: Checkout
