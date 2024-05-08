@@ -5,16 +5,16 @@ on:
   workflow_call:
     inputs:
       build-artifact-dir:
-        description: Directory of built files from the container to upload as artifact (relative to the container's working directory)
+        description: Path to the built files directory in the container for artifact upload (relative to the container's working directory)
         required: false
         type: string # newline-delimited string for each path
       build-artifact-name:
         default: build-artifact
-        description: Name of the built files artifact to be uploaded
+        description: Name of the artifact containing the built files to be uploaded
         type: string
       build-artifact-working-dir:
         default: /var/app
-        description: Working directory of the container to determine where to upload built files as artifact (absolute path with no trailing slash)
+        description: Absolute path to the container’s working directory to set the upload location for built files (no trailing slash)
         type: string
       build-args:
         description: List of build-time arguments
@@ -30,11 +30,11 @@ on:
         type: string
       push:
         default: false
-        description: Specifies if the built image should be pushed to the specified registry
+        description: Specifies if the built image should be pushed to the registry
         type: boolean
       image-name:
         default: ${{ github.repository }}
-        description: Docker image base name (excluding the GCP project ID and registry)
+        description: Docker image base name (excluding GCP project ID and registry)
         type: string
       image-tag-suffix:
         description: Docker image tag suffix
@@ -44,44 +44,48 @@ on:
         default: us-docker.pkg.dev
         description: Registry path (required if `push` is `true`, i.e. `<location>-docker.pkg.dev` for GAR or `gcr.io` for GCR)
         type: string
+      repository:
+        description: GAR repository name
+        required: false
+        type: string
       service-account:
-        description: GCP service account to impersonate by the current Workload Identity
+        description: GCP service account to impersonate by the Workload Identity
         required: false
         type: string
       image-artifact-dir:
-        description: Directory to upload the built image from (absolute or relative to working directory)
+        description: Path to the directory containing the built image for artifact upload (absolute or relative to working directory)
         type: string
         required: false
       image-artifact-name:
         default: image-artifact
-        description: Name of the built image artifact to be uploaded
+        description: Name of the artifact containing the built image to be uploaded
         type: string
       workload-identity-provider:
         description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
         required: false
         type: string
     outputs:
+      build-artifact-dir:
+        description: Path to the directory of the uploaded artifact of built files (relative to working directory)
+        value: ${{ inputs.build-artifact-dir }}
       build-artifact-name:
         description: Name of the uploaded artifact of built files
         value: ${{ inputs.build-artifact-dir && inputs.build-artifact-name || '' }}
-      build-artifact-dir:
-        description: Directory of the uploaded artifact of built files (relative to working directory)
-        value: ${{ inputs.build-artifact-dir }}
       image:
         description: The built Docker image
         value: ${{ jobs.build.outputs.image }}
       image-artifact-dir:
-        description: Directory of the uploaded artifact of the built image (absolute or relative to working directory)
+        description: Path to the directory of the uploaded artifact of the built image (absolute or relative to working directory)
         value: ${{ inputs.image-artifact-dir }}
       image-artifact-file:
-        description: File of the uploaded artifact of the built image (absolute or relative to working directory)
+        description: Path to the uploaded artifact of the built image (absolute or relative to working directory)
         value: ${{ inputs.image-artifact-dir && format('{0}/{1}.tar', inputs.image-artifact-dir, inputs.image-artifact-name) || '' }}
       image-artifact-name:
         description: Name of the uploaded artifact of the built image
         value: ${{ inputs.image-artifact-dir && inputs.image-artifact-name || '' }}
     secrets:
       github-token:
-        description: GitHub personal access token to use when checking out private repositories
+        description: GitHub personal access token for checkout and passing as GITHUB_TOKEN to Docker during image build
         required: false
 jobs:
   build:
@@ -125,7 +129,7 @@ jobs:
         id: metadata
         uses: docker/metadata-action@v5
         with:
-          images: ${{ inputs.push && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.image-name }}
+          images: ${{ inputs.push && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.repository && format('{0}/', inputs.repository) || '' }}${{ inputs.image-name }}
           tags: |
             type=ref,event=pr,suffix=${{ inputs.image-tag-suffix }}
             type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
