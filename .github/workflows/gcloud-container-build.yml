@@ -40,13 +40,13 @@ on:
         description: Docker image tag suffix
         required: false
         type: string
+      namespace:
+        description: Repository namespace, i.e. GAR repository name
+        required: false
+        type: string
       registry:
         default: us-docker.pkg.dev
         description: Registry path (required if `push` is `true`, i.e. `<location>-docker.pkg.dev` for GAR or `gcr.io` for GCR)
-        type: string
-      repository:
-        description: GAR repository name
-        required: false
         type: string
       service-account:
         description: GCP service account to impersonate by the Workload Identity
@@ -72,7 +72,7 @@ on:
         description: Name of the uploaded artifact of built files
         value: ${{ inputs.build-artifact-dir && inputs.build-artifact-name || '' }}
       image:
-        description: The built Docker image
+        description: The full name of built Docker image, including the registry host, repository namespace, image name and tag (highest priority tag is used)
         value: ${{ jobs.build.outputs.image }}
       image-artifact-dir:
         description: Path to the directory of the uploaded artifact of the built image (absolute or relative to working directory)
@@ -83,6 +83,12 @@ on:
       image-artifact-name:
         description: Name of the uploaded artifact of the built image
         value: ${{ inputs.image-artifact-dir && inputs.image-artifact-name || '' }}
+      repository:
+        description: Full path to the repository in the registry including the registry host
+        value: ${{ jobs.build.outputs.repository }}
+      version:
+        description: The highest priority tag of the built Docker image
+        value: ${{ jobs.build.outputs.version }}
     secrets:
       github-token:
         description: GitHub personal access token for checkout and passing as GITHUB_TOKEN to Docker during image build
@@ -97,6 +103,8 @@ jobs:
       id-token: write
     outputs:
       image: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
+      repository: ${{ inputs.push && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.namespace && format('{0}/', inputs.namespace) || '' }}
+      version: ${{ steps.metadata.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -129,11 +137,11 @@ jobs:
         id: metadata
         uses: docker/metadata-action@v5
         with:
-          images: ${{ inputs.push && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.repository && format('{0}/', inputs.repository) || '' }}${{ inputs.image-name }}
+          images: ${{ inputs.push && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.namespace && format('{0}/', inputs.namespace) || '' }}${{ inputs.image-name }}
           tags: |
-            type=ref,event=pr,suffix=${{ inputs.image-tag-suffix }}
-            type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
             type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
+            type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
+            type=ref,event=pr,suffix=${{ inputs.image-tag-suffix }}
             type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
       - name: Build image
         id: build
