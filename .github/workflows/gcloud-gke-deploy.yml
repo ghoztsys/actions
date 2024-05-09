@@ -107,7 +107,11 @@ jobs:
 
                 console_url="https://console.cloud.google.com/kubernetes/clusters/details/${region_zone}/${name}"
 
-                echo "- Updated \`${K8S_CONTAINER}\` to \`${IMAGE}\` in \`deployment/${K8S_DEPLOYMENT}\` for cluster [\`${name}\`](${console_url}) in region zone \`${region_zone}\`, url: [${url}](${url})" >> $GITHUB_STEP_SUMMARY
+                echo "- [\`${name}\`](${console_url})" >> $GITHUB_STEP_SUMMARY
+                echo "    - Endpoint: [${url}](https://${url})" >> $GITHUB_STEP_SUMMARY
+                echo "    - Image: \`${IMAGE}\`" >> $GITHUB_STEP_SUMMARY
+                echo "    - Container: \`${K8S_CONTAINER}\`" >> $GITHUB_STEP_SUMMARY
+                echo "    - Deployment: \`deployment/${K8S_DEPLOYMENT}\`" >> $GITHUB_STEP_SUMMARY
                 echo "console-url=${console_url}" >> $GITHUB_OUTPUT
                 echo "deployment-url=${url}" >> $GITHUB_OUTPUT
               fi
