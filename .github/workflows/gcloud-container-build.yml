@@ -192,8 +192,9 @@ jobs:
       - name: Generate summary
         if: ${{ inputs.push }}
         run: |-
-          image=${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
-          echo "Successfully pushed image [\`${image}\`](https://${image}) with metadata:\n```json\n${{ steps.metadata.outputs.json }}\n```" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.metadata.outputs.json }}" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          tags=$(echo '${{ fromJSON(steps.metadata.outputs.json).tags }}' | jq -r '.[]')
+          echo "Successfully pushed image with tags:" >> $GITHUB_STEP_SUMMARY
+          for tag in $tags
+          do
+            echo "- [\`${tag}\`](https://${tag})" >> $GITHUB_STEP_SUMMARY
+          done
