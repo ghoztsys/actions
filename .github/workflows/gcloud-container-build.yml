@@ -142,7 +142,7 @@ jobs:
             type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
             type=ref,event=pr,suffix=${{ inputs.image-tag-suffix }}
             type=sha,prefix=,format=short,suffix=${{ inputs.image-tag-suffix }}
-            type=raw,value=latest,priority=1,suffix=${{ inputs.image-tag-suffix }}
+            type=raw,value=latest,priority=1,enable={{is_default_branch}},suffix=${{ inputs.image-tag-suffix }}
       - name: Build image
         id: build
         uses: docker/build-push-action@v5
