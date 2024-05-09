@@ -194,3 +194,6 @@ jobs:
         run: |-
           image=${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
           echo "Successfully pushed image [\`${image}\`](https://${image}) with metadata:\n```json\n${{ steps.metadata.outputs.json }}\n```" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.metadata.outputs.json }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
