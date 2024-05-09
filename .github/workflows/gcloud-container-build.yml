@@ -139,10 +139,10 @@ jobs:
         with:
           images: ${{ inputs.push && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.namespace && format('{0}/', inputs.namespace) || '' }}${{ inputs.image-name }}
           tags: |
-            type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
             type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
             type=ref,event=pr,suffix=${{ inputs.image-tag-suffix }}
-            type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
+            type=sha,prefix=,format=short,suffix=${{ inputs.image-tag-suffix }}
+            type=raw,value=latest,priority=1,suffix=${{ inputs.image-tag-suffix }}
       - name: Build image
         id: build
         uses: docker/build-push-action@v5
