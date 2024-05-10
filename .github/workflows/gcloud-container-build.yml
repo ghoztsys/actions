@@ -141,7 +141,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
             type=ref,event=pr,suffix=${{ inputs.image-tag-suffix }}
-            type=sha,prefix=,format=short,suffix=${{ inputs.image-tag-suffix }}
+            type=sha,prefix=,format=short,value=${{ github.event.pull_request.head.sha || github.sha }},suffix=${{ inputs.image-tag-suffix }}
             type=raw,value=latest,priority=1,enable={{is_default_branch}},suffix=${{ inputs.image-tag-suffix }}
       - name: Build image
         id: build
