@@ -1,0 +1,40 @@
+# Required permissions:
+#   checks: write
+#   contents: read
+#   id-token: write
+
+name: Authenticate Google Artifact Registry
+description: Authenticates to Google Artifact Registry.
+inputs:
+  registry:
+    default: us-docker.pkg.dev
+    description: Registry host (i.e. `<location>-docker.pkg.dev` for GAR or `gcr.io` for GCR)
+  service-account:
+    description: GCP service account to impersonate by the Workload Identity
+  workload-identity-provider:
+    description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
+outputs:
+  repository:
+    description: Google Artifact Registry repository (i.e. `<registry_host>/<project_id>`)
+    value: ${{ format('{0}/${1}', inputs.registry, steps.auth.outputs.project_id) }}
+runs:
+  using: composite
+  steps:
+    - name: Authenticate Google Cloud
+      id: auth
+      if: ${{ inputs.workload-identity-provider && inputs.service-account }}
+      uses: google-github-actions/auth@v2
+      with:
+        service_account: ${{ inputs.service-account }}
+        token_format: access_token
+        workload_identity_provider: ${{ inputs.workload-identity-provider }}
+    - name: Authenticate Docker registry
+      uses: docker/login-action@v3
+      with:
+        password: ${{ steps.auth.outputs.access_token }}
+        registry: ${{ inputs.registry }}
+        username: oauth2accesstoken
+    # - name: Set up Google Cloud SDK
+    #   uses: google-github-actions/setup-gcloud@v2
+    #   with:
+    #     project_id: ${{ steps.auth.outputs.project_id }}
