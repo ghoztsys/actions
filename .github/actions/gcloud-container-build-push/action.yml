@@ -145,21 +145,20 @@ runs:
     - name: Copy build artifact
       shell: bash
       if: ${{ inputs.build-artifact-dir }}
-      env:
-        IMAGE: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
       run: |-
+        image=${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
         from_path="${{ inputs.build-artifact-working-dir }}/${{ inputs.build-artifact-dir }}"
         to_path="${PWD}/${{ inputs.build-artifact-dir }}"
         process_name="tmp"
 
-        echo "Copying files from ${IMAGE}... from=${from_path}, to=${to_path}"
+        echo "Copying files from ${image}... from=${from_path}, to=${to_path}"
 
         mkdir -p $to_path
-        docker run -td --rm --name $process_name $IMAGE
+        docker run -td --rm --name $process_name $image
         docker cp $process_name:$from_path $to_path
         docker stop $process_name
 
-        echo "Copying files from ${IMAGE}... OK"
+        echo "Copying files from ${image}... OK"
     - name: Upload build artifact
       if: ${{ inputs.build-artifact-dir }}
       uses: actions/upload-artifact@v4
