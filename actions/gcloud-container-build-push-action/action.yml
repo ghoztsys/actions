@@ -2,68 +2,53 @@ name: Build
 description: Build and push a container image to Google Artifact Registry.
 inputs:
   build-artifact-dir:
-    description: Path to the built files directory in the container for artifact upload (relative to the container's working directory)
+    description: Path to the built files directory in the container for artifact upload (newline-delimited string for each path, relative to the container's working directory)
     required: false
-    type: string # newline-delimited string for each path
   build-artifact-name:
     default: build-artifact
     description: Name of the artifact containing the built files to be uploaded
-    type: string
   build-artifact-working-dir:
     default: /var/app
-    description: Absolute path to the container’s working directory to set the upload location for built files (no trailing slash)
-    type: string
+    description: Absolute path to the container’s working directory to set the upload location for built files (newline-delimited string, no trailing slash)
   build-args:
     description: List of build-time arguments
     required: false
-    type: string # newline-delimited string
   build-secrets:
-    description: List of build-time secrets
+    description: List of build-time secrets (newline-delimited string)
     required: false
-    type: string # newline-delimited string
   dockerfile-path:
     default: Dockerfile
     description: Path to the Dockerfile (relative to context, defaults to `Dockerfile`)
-    type: string
   github-token:
     description: GitHub personal access token for code checkout and passing as GITHUB_TOKEN to Docker during image build
     required: false
   push:
-    default: false
+    default: 'false'
     description: Specifies if the built image should be pushed to the registry
-    type: boolean
   image-name:
     default: ${{ github.repository }}
     description: Docker image base name (excluding GCP project ID and registry)
-    type: string
   image-tag-suffix:
     description: Docker image tag suffix
     required: false
-    type: string
   namespace:
     description: Repository namespace, i.e. GAR repository name
     required: false
-    type: string
   registry:
     default: us-docker.pkg.dev
     description: Registry path (required if `push` is `true`, i.e. `<location>-docker.pkg.dev` for GAR or `gcr.io` for GCR)
-    type: string
   service-account:
     description: GCP service account to impersonate by the Workload Identity
     required: false
-    type: string
   image-artifact-dir:
     description: Path to the directory containing the built image for artifact upload (absolute or relative to working directory)
-    type: string
     required: false
   image-artifact-name:
     default: image-artifact
     description: Name of the artifact containing the built image to be uploaded
-    type: string
   workload-identity-provider:
     description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
     required: false
-    type: string
 outputs:
   build-artifact-dir:
     description: Path to the directory of the uploaded artifact of built files (relative to working directory)
@@ -85,7 +70,7 @@ outputs:
     value: ${{ inputs.image-artifact-dir && inputs.image-artifact-name || '' }}
   repository:
     description: Full path to the repository in the registry including the registry host
-    value: ${{ inputs.push && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.namespace && format('{0}', inputs.namespace) || '' }}
+    value: ${{ inputs.push == 'true' && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.namespace && format('{0}', inputs.namespace) || '' }}
   version:
     description: The highest priority tag of the built Docker image
     value: ${{ steps.metadata.outputs.version }}
@@ -96,7 +81,7 @@ runs:
       uses: actions/checkout@v4
       with:
         submodules: recursive
-        token: ${{ secrets.github-token && secrets.github-token || github.token }}
+        token: ${{ inputs.github-token && inputs.github-token || github.token }}
     - name: Authenticate Google Cloud
       id: auth
       if: ${{ inputs.workload-identity-provider && inputs.service-account }}
@@ -123,7 +108,7 @@ runs:
       id: metadata
       uses: docker/metadata-action@v5
       with:
-        images: ${{ inputs.push && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.namespace && format('{0}/', inputs.namespace) || '' }}${{ inputs.image-name }}
+        images: ${{ inputs.push == 'true' && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.namespace && format('{0}/', inputs.namespace) || '' }}${{ inputs.image-name }}
         tags: |
           type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
           type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
@@ -131,6 +116,7 @@ runs:
           type=raw,value=latest,enable={{is_default_branch}},suffix=${{ inputs.image-tag-suffix }}
     - name: Extract SHA
       id: sha
+      shell: bash
       run: |
         sha=$(echo '${{ steps.metadata.outputs.json }}' | jq -r '.labels."org.opencontainers.image.revision"')
         short_sha=${sha:0:7}
@@ -149,14 +135,15 @@ runs:
         context: .
         file: ${{ inputs.dockerfile-path }}
         labels: ${{ steps.metadata.outputs.labels }}
-        outputs: ${{ !inputs.push && inputs.image-artifact-dir && format('type=docker,dest={0}/{1}.tar', inputs.image-artifact-dir, inputs.image-artifact-name) || '' }}
+        outputs: ${{ inputs.push != 'true' && inputs.image-artifact-dir && format('type=docker,dest={0}/{1}.tar', inputs.image-artifact-dir, inputs.image-artifact-name) || '' }}
         provenance: false
-        push: ${{ inputs.push }}
+        push: ${{ inputs.push == 'true' }}
         secrets: |
-          ${{ secrets.github-token && format('GITHUB_TOKEN={0}', secrets.github-token) || '' }}
+          ${{ inputs.github-token && format('GITHUB_TOKEN={0}', inputs.github-token) || '' }}
           ${{ inputs.build-secrets }}
         tags: ${{ steps.metadata.outputs.tags }}
     - name: Copy build artifact
+      shell: bash
       if: ${{ inputs.build-artifact-dir }}
       env:
         IMAGE: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
@@ -186,7 +173,8 @@ runs:
         name: ${{ inputs.image-artifact-name }}
         path: ${{ inputs.image-artifact-dir }}/${{ inputs.image-artifact-name }}.tar
     - name: Generate summary
-      if: ${{ inputs.push }}
+      shell: bash
+      if: ${{ inputs.push == 'true' }}
       run: |-
         echo "Successfully pushed image with tags:" >> $GITHUB_STEP_SUMMARY
         echo '${{ steps.metadata.outputs.json }}' | jq -r '.tags[]' | while read tag; do
