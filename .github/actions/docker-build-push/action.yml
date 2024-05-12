@@ -84,7 +84,7 @@ runs:
           type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
           type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
           type=ref,event=pr,suffix=${{ inputs.image-tag-suffix }}
-          type=raw,value=latest,enable={{is_default_branch}},suffix=${{ inputs.image-tag-suffix }}
+          type=raw,value=latest,suffix=${{ inputs.image-tag-suffix }}
     - name: Parse metadata
       id: parsed
       shell: bash
