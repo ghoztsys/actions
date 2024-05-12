@@ -8,10 +8,8 @@ inputs:
     description: Environment for the release
   org:
     description: Sentry organization slug
-    required: false
   project:
     description: Sentry project slug
-    required: false
   sourcemaps-artifacts-name:
     description: Name of the sourcemap artifacts to download
     required: false
@@ -19,7 +17,6 @@ inputs:
     description: Path (relative to working directory) to of the sourcemaps
   version:
     description: Identifier that uniquely identifies the release
-    required: false
 runs:
   using: composite
   steps:

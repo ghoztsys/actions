@@ -1,0 +1,76 @@
+
+name: Deploy
+description: Deploys a container image to Google Cloud Run
+inputs:
+  image:
+    description: Docker image to deploy
+    required: true
+  labels:
+    description: Comma-delimited labels to match when searching for Cloud Run services to deploy to (i.e. "service=foo,environment=bar")
+    required: false
+  region:
+    description: Specific region of the Cloud Run service(s) to deploy to
+    required: false
+  service-account:
+    description: GCP service account to impersonate by the current Workload Identity
+    required: true
+  workload-identity-provider:
+    description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
+    required: true
+outputs:
+  console-url:
+    description: URL of the last deployed Cloud Run service on Google Cloud console
+    value: ${{ steps.deploy.outputs.console-url }}
+  deployment-url:
+    description: URL of the last deployed Cloud Run service
+    value: ${{ steps.deploy.outputs.deployment-url }}
+runs:
+  using: composite
+  steps:
+    - name: Authenticate Google Cloud
+      id: auth
+      uses: google-github-actions/auth@v2
+      with:
+        service_account: ${{ inputs.service-account }}
+        token_format: access_token
+        workload_identity_provider: ${{ inputs.workload-identity-provider }}
+    - name: Set up Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ steps.auth.outputs.project_id }}
+    - name: Deploy Cloud Run services
+      id: deploy
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        LABELS: ${{ inputs.labels }}
+        REGION: ${{ inputs.region }}
+      run: |-
+        labels=($(echo ${{ inputs.labels }} | sed "s/,/ /g"))
+        filter=$(printf " AND metadata.labels.%s" "${labels[@]}")
+        services=$(gcloud run services list \
+          --platform managed \
+          --filter="${filter:5}" \
+          $(if [ ! -z $REGION ]; then echo "--region $REGION"; else echo ""; fi) \
+          | awk 'NR >= 2 {print $2 "|" $3 "|" $4}' \
+          | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')
+
+        if [ ! -z $services ]; then
+          echo "Deployed Cloud Run service(s):" >> $GITHUB_STEP_SUMMARY
+
+          for service in $(echo $services | sed "s/,/ /g")
+          do
+            if [ ! -z $service ]; then
+              read name region url <<< $(IFS='|'; echo $service)
+              gcloud run deploy $name --image $IMAGE --platform managed --region $region
+
+              console_url="https://console.cloud.google.com/run/detail/${region}/${name}"
+
+              echo "- Deployed container image \`${IMAGE}\` to Cloud Run service [\`${name}\`](${console_url}) in region \`${region}\`, url: [${url}](${url})" >> $GITHUB_STEP_SUMMARY
+              echo "console-url=${console_url}" >> $GITHUB_OUTPUT
+              echo "deployment-url=${url}" >> $GITHUB_OUTPUT
+            fi
+          done
+        else
+          echo "No Cloud Run service(s) found, deployment skipped." >> $GITHUB_STEP_SUMMARY
+        fi
