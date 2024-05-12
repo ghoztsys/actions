@@ -16,7 +16,7 @@ inputs:
 outputs:
   repository:
     description: Google Artifact Registry repository (i.e. `<registry_host>/<project_id>`)
-    value: ${{ format('{0}/${1}', inputs.registry, steps.auth.outputs.project_id) }}
+    value: ${{ format('{0}/{1}', inputs.registry, steps.auth.outputs.project_id) }}
 runs:
   using: composite
   steps:
