@@ -62,7 +62,7 @@ outputs:
     value: ${{ inputs.build-artifact-dir && inputs.build-artifact-name || '' }}
   image:
     description: The full name of built Docker image, including the registry host, repository namespace, image name and tag (highest priority tag is used)
-    value: ${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
+    value: ${{ steps.build.outputs.image }}
   image-artifact-dir:
     description: Path to the directory of the uploaded artifact of the built image (absolute or relative to working directory)
     value: ${{ inputs.image-artifact-dir }}
@@ -74,10 +74,10 @@ outputs:
     value: ${{ inputs.image-artifact-dir && inputs.image-artifact-name || '' }}
   repository:
     description: Full path to the repository in the registry including the registry host
-    value: ${{ inputs.push == 'true' && format('{0}/{1}/{2}', inputs.registry, steps.auth.outputs.project_id, inputs.namespace) || '' }}
+    value: ${{ format('{0}/${1}', steps.auth.outputs.repository, inputs.namespace) }}
   version:
     description: The highest priority tag of the built Docker image
-    value: ${{ steps.metadata.outputs.version }}
+    value: ${{ steps.build.outputs.version }}
 runs:
   using: composite
   steps:
@@ -110,4 +110,4 @@ runs:
         image-name: ${{ inputs.image-name }}
         image-tag-suffix: ${{ inputs.image-tag-suffix }}
         push: ${{ inputs.push }}
-        registry: ${{ format('{0}/{1}', inputs.registry, inputs.namespace) }}
+        registry: ${{ format('{0}/${1}', steps.auth.outputs.repository, inputs.namespace) }}
