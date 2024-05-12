@@ -32,7 +32,7 @@ runs:
     - name: Create Sentry release
       uses: getsentry/action-release@v1
       env:
-        SENTRY_AUTH_TOKEN: ${{ secrets.auth-token }}
+        SENTRY_AUTH_TOKEN: ${{ inputs.auth-token }}
         SENTRY_ORG: ${{ inputs.org }}
         SENTRY_PROJECT: ${{ inputs.project }}
       with:

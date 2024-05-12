@@ -1,5 +1,4 @@
 # Required permissions:
-#   checks: write
 #   contents: read
 #   id-token: write
 
@@ -34,7 +33,3 @@ runs:
         password: ${{ steps.auth.outputs.access_token }}
         registry: ${{ inputs.registry }}
         username: oauth2accesstoken
-    # - name: Set up Google Cloud SDK
-    #   uses: google-github-actions/setup-gcloud@v2
-    #   with:
-    #     project_id: ${{ steps.auth.outputs.project_id }}
