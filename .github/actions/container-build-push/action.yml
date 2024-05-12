@@ -22,24 +22,24 @@ inputs:
   github-token:
     description: GitHub personal access token for code checkout and passing as GITHUB_TOKEN to Docker during image build
     required: false
-  push:
-    default: 'false'
-    description: Specifies if the built image should be pushed to the registry
-  image-name:
-    default: ${{ github.repository }}
-    description: Docker image base name
-  image-tag-suffix:
-    description: Docker image tag suffix
-    required: false
-  registry:
-    description: URL of the registry to push to
-    required: false
   image-artifact-dir:
     description: Path to the directory containing the built image for artifact upload (absolute or relative to working directory)
     required: false
   image-artifact-name:
     default: image-artifact
     description: Name of the artifact containing the built image to be uploaded
+  image-name:
+    default: ${{ github.repository }}
+    description: Docker image base name
+  image-tag-suffix:
+    description: Docker image tag suffix
+    required: false
+  push:
+    default: 'false'
+    description: Specifies if the built image should be pushed to the registry
+  registry:
+    description: URL of the registry to push to
+    required: false
 outputs:
   build-artifact-dir:
     description: Path to the directory of the uploaded artifact of built files (relative to working directory)
@@ -131,7 +131,7 @@ runs:
         docker cp $process_name:$from_path $to_path
         docker stop $process_name
 
-        echo "Copying files from ${image}... OK"
+        echo "Copied files from ${image}"
     - name: Upload build artifact
       if: ${{ inputs.build-artifact-dir }}
       uses: actions/upload-artifact@v4

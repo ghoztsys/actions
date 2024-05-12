@@ -38,10 +38,9 @@ inputs:
     required: false
   namespace:
     description: Repository namespace, i.e. GAR repository name
-    required: false
   registry:
     default: us-docker.pkg.dev
-    description: Registry path (required if `push` is `true`, i.e. `<location>-docker.pkg.dev`)
+    description: Registry path
   service-account:
     description: GCP service account to impersonate by the Workload Identity
     required: false
@@ -95,80 +94,20 @@ runs:
         registry: ${{ inputs.registry }}
         service-account: ${{ inputs.service-account }}
         workload-identity-provider: ${{ inputs.workload-identity-provider }}
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    - name: Set up metadata
-      id: metadata
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ inputs.push && format('{0}/{1}/', steps.auth.outputs.registry, inputs.namespace) || '' }}${{ inputs.image-name }}
-        tags: |
-          type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
-          type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
-          type=ref,event=pr,suffix=${{ inputs.image-tag-suffix }}
-          type=raw,value=latest,enable={{is_default_branch}},suffix=${{ inputs.image-tag-suffix }}
-    - name: Extract SHA
-      id: sha
-      shell: bash
-      run: |
-        sha=$(echo '${{ steps.metadata.outputs.json }}' | jq -r '.labels."org.opencontainers.image.revision"')
-        short_sha=${sha:0:7}
-        echo "sha=${sha}" >> $GITHUB_OUTPUT
-        echo "short_sha=${short_sha}" >> $GITHUB_OUTPUT
-    - name: Build image
+    - name: Build
       id: build
-      uses: docker/build-push-action@v5
+      uses: ghoztsys/workflows/.github/actions/container-build-push@master
       with:
-        build-args: |
-          ${{ inputs.build-args }}
-          SHA=${{ steps.sha.outputs.sha }}
-          SHORT_SHA=${{ steps.sha.outputs.short_sha }}
-        cache-from: type=gha,scope=${{ github.workflow }}
-        cache-to: type=gha,scope=${{ github.workflow }},mode=max
-        context: .
-        file: ${{ inputs.dockerfile-path }}
-        labels: ${{ steps.metadata.outputs.labels }}
-        outputs: ${{ inputs.push != 'true' && inputs.image-artifact-dir && format('type=docker,dest={0}/{1}.tar', inputs.image-artifact-dir, inputs.image-artifact-name) || '' }}
-        provenance: false
-        push: ${{ inputs.push == 'true' }}
-        secrets: |
-          ${{ inputs.github-token && format('GITHUB_TOKEN={0}', inputs.github-token) || '' }}
-          ${{ inputs.build-secrets }}
-        tags: ${{ steps.metadata.outputs.tags }}
-    - name: Copy build artifact
-      shell: bash
-      if: ${{ inputs.build-artifact-dir }}
-      run: |-
-        image=${{ fromJSON(steps.metadata.outputs.json).tags[0] }}
-        from_path="${{ inputs.build-artifact-working-dir }}/${{ inputs.build-artifact-dir }}"
-        to_path="${PWD}/${{ inputs.build-artifact-dir }}"
-        process_name="tmp"
-
-        echo "Copying files from ${image}... from=${from_path}, to=${to_path}"
-
-        mkdir -p $to_path
-        docker run -td --rm --name $process_name $image
-        docker cp $process_name:$from_path $to_path
-        docker stop $process_name
-
-        echo "Copying files from ${image}... OK"
-    - name: Upload build artifact
-      if: ${{ inputs.build-artifact-dir }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ inputs.build-artifact-name }}
-        path: ${{ inputs.build-artifact-dir }}
-    - name: Upload image artifact
-      if: ${{ inputs.image-artifact-dir }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ inputs.image-artifact-name }}
-        path: ${{ inputs.image-artifact-dir }}/${{ inputs.image-artifact-name }}.tar
-    - name: Generate summary
-      shell: bash
-      if: ${{ inputs.push == 'true' }}
-      run: |-
-        echo "Successfully pushed image with tags:" >> $GITHUB_STEP_SUMMARY
-        echo '${{ steps.metadata.outputs.json }}' | jq -r '.tags[]' | while read tag; do
-          echo "- [\`${tag}\`](https://${tag})" >> $GITHUB_STEP_SUMMARY
-        done
+        build-artifact-dir: ${{ inputs.build-artifact-dir }}
+        build-artifact-name: ${{ inputs.build-artifact-name }}
+        build-artifact-working-dir: ${{ inputs.build-artifact-working-dir }}
+        build-args: ${{ inputs.build-args }}
+        build-secrets: ${{ inputs.build-secrets }}
+        dockerfile-path: ${{ inputs.dockerfile-path }}
+        github-token: ${{ inputs.github-token }}
+        image-artifact-dir: ${{ inputs.image-artifact-dir }}
+        image-artifact-name: ${{ inputs.image-artifact-name }}
+        image-name: ${{ inputs.image-name }}
+        image-tag-suffix: ${{ inputs.image-tag-suffix }}
+        push: ${{ inputs.push }}
+        registry: ${{ format('{0}/{1}', inputs.registry, inputs.namespace) }}
