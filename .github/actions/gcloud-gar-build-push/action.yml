@@ -4,7 +4,7 @@
 #   id-token: write
 
 name: Build
-description: Build and push a container image to Google Artifact Registry.
+description: Build and push a container image to Google Artifact Registry
 inputs:
   build-artifact-dir:
     description: Path to the built files directory in the container for artifact upload (newline-delimited string for each path, relative to the container's working directory)
