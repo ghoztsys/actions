@@ -96,7 +96,7 @@ runs:
         workload-identity-provider: ${{ inputs.workload-identity-provider }}
     - name: Build
       id: build
-      uses: ghoztsys/workflows/.github/actions/container-build-push@master
+      uses: ghoztsys/workflows/.github/actions/docker-build-push@master
       with:
         build-artifact-dir: ${{ inputs.build-artifact-dir }}
         build-artifact-name: ${{ inputs.build-artifact-name }}
