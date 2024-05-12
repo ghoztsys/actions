@@ -1,6 +1,8 @@
 name: Create Sentry release
 description: Creates a Sentry release
 inputs:
+  auth-token:
+    description: Sentry authentication token
   environment:
     default: development
     description: Environment for the release
@@ -9,9 +11,6 @@ inputs:
     required: false
   project:
     description: Sentry project slug
-    required: false
-  sentry-auth-token:
-    description: Sentry authentication token (if creating a release in Sentry)
     required: false
   sourcemaps-artifacts-name:
     description: Name of the sourcemap artifacts to download
@@ -33,7 +32,7 @@ runs:
     - name: Create Sentry release
       uses: getsentry/action-release@v1
       env:
-        SENTRY_AUTH_TOKEN: ${{ secrets.sentry-auth-token }}
+        SENTRY_AUTH_TOKEN: ${{ secrets.auth-token }}
         SENTRY_ORG: ${{ inputs.org }}
         SENTRY_PROJECT: ${{ inputs.project }}
       with:
