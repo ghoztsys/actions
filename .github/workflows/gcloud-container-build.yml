@@ -114,11 +114,11 @@ jobs:
       - name: Authenticate Google Artifact Registry
         id: auth
         if: ${{ inputs.push }}
-        uses: ghoztsys/workflows/.github/actions/gar-auth@master
+        uses: ghoztsys/workflows/.github/actions/gcloud-gar-auth@master
         with:
           registry: ${{ inputs.registry }}
-          service_account: ${{ inputs.service-account }}
-          workload_identity_provider: ${{ inputs.workload-identity-provider }}
+          service-account: ${{ inputs.service-account }}
+          workload-identity-provider: ${{ inputs.workload-identity-provider }}
       - name: Set up metadata
         id: metadata
         uses: docker/metadata-action@v5

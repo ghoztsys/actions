@@ -1,3 +1,8 @@
+# Required permissions:
+#   checks: write
+#   contents: read
+#   id-token: write
+
 name: Build
 description: Build and push a container image to Google Artifact Registry.
 inputs:
@@ -36,7 +41,7 @@ inputs:
     required: false
   registry:
     default: us-docker.pkg.dev
-    description: Registry path (required if `push` is `true`, i.e. `<location>-docker.pkg.dev` for GAR or `gcr.io` for GCR)
+    description: Registry path (required if `push` is `true`, i.e. `<location>-docker.pkg.dev`)
   service-account:
     description: GCP service account to impersonate by the Workload Identity
     required: false
@@ -70,7 +75,7 @@ outputs:
     value: ${{ inputs.image-artifact-dir && inputs.image-artifact-name || '' }}
   repository:
     description: Full path to the repository in the registry including the registry host
-    value: ${{ inputs.push == 'true' && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.namespace && format('{0}', inputs.namespace) || '' }}
+    value: ${{ inputs.push == 'true' && format('{0}/{1}/{2}', inputs.registry, steps.auth.outputs.project_id, inputs.namespace) || '' }}
   version:
     description: The highest priority tag of the built Docker image
     value: ${{ steps.metadata.outputs.version }}
@@ -82,33 +87,21 @@ runs:
       with:
         submodules: recursive
         token: ${{ inputs.github-token && inputs.github-token || github.token }}
-    - name: Authenticate Google Cloud
+    - name: Authenticate Google Artifact Registry
       id: auth
-      if: ${{ inputs.workload-identity-provider && inputs.service-account }}
-      uses: google-github-actions/auth@v2
+      if: ${{ inputs.push }}
+      uses: ghoztsys/workflows/.github/actions/gcloud-gar-auth@master
       with:
-        service_account: ${{ inputs.service-account }}
-        token_format: access_token
-        workload_identity_provider: ${{ inputs.workload-identity-provider }}
-    - name: Authenticate Docker registry
-      if: ${{ steps.auth.outcome == 'success' }}
-      uses: docker/login-action@v3
-      with:
-        password: ${{ steps.auth.outputs.access_token }}
         registry: ${{ inputs.registry }}
-        username: oauth2accesstoken
-    - name: Set up Google Cloud SDK
-      if: ${{ steps.auth.outcome == 'success' }}
-      uses: google-github-actions/setup-gcloud@v2
-      with:
-        project_id: ${{ steps.auth.outputs.project_id }}
+        service-account: ${{ inputs.service-account }}
+        workload-identity-provider: ${{ inputs.workload-identity-provider }}
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
     - name: Set up metadata
       id: metadata
       uses: docker/metadata-action@v5
       with:
-        images: ${{ inputs.push == 'true' && format('{0}/', inputs.registry) || '' }}${{ steps.auth.outcome == 'success' && format('{0}/', steps.auth.outputs.project_id) || '' }}${{ inputs.namespace && format('{0}/', inputs.namespace) || '' }}${{ inputs.image-name }}
+        images: ${{ inputs.push && format('{0}/{1}/', steps.auth.outputs.registry, inputs.namespace) || '' }}${{ inputs.image-name }}
         tags: |
           type=sha,prefix=,format=short,priority=1000,suffix=${{ inputs.image-tag-suffix }}
           type=semver,pattern={{version}},suffix=${{ inputs.image-tag-suffix }}
