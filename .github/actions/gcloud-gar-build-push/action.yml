@@ -110,4 +110,4 @@ runs:
         image-name: ${{ inputs.image-name }}
         image-tag-suffix: ${{ inputs.image-tag-suffix }}
         push: ${{ inputs.push }}
-        registry: ${{ format('{0}/${1}', steps.auth.outputs.repository, inputs.namespace) }}
+        registry: ${{ format('{0}/{1}', steps.auth.outputs.repository, inputs.namespace) }}
