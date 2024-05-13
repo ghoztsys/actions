@@ -114,7 +114,7 @@ jobs:
       - name: Authenticate Google Artifact Registry
         id: auth
         if: ${{ inputs.push }}
-        uses: ghoztsys/workflows/.github/actions/gcloud-gar-auth@master
+        uses: ghoztsys/actions/gcloud-artifacts-auth@master
         with:
           registry: ${{ inputs.registry }}
           service-account: ${{ inputs.service-account }}

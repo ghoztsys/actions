@@ -1,6 +1,6 @@
-# Workflows
+# Actions
 
-Repository of reusable workflows.
+Collection of custom GitHub actions and reusable workflows.
 
 ## Publishing
 
