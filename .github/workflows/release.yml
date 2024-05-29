@@ -40,7 +40,7 @@ jobs:
             git tag -fa ${MAJOR_VERSION} -m "Map ${MAJOR_VERSION} to ${VERSION}"
             git push origin ${MAJOR_VERSION} --force
 
-            echo "Successfully published major version \`$MAJOR_VERSION\`" >> $GITHUB_STEP_SUMMARY
+            echo "Successfully published semantic version \`$VERSION\` and major version \`$MAJOR_VERSION\`" >> $GITHUB_STEP_SUMMARY
           fi
   notify:
     needs: [release]
