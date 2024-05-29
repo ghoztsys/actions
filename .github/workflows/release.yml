@@ -1,7 +1,7 @@
-name: Major Release
+name: Release
 on:
-  release:
-    types: [published]
+  push:
+    branches: [master]
 jobs:
   release:
     name: Release
@@ -15,18 +15,20 @@ jobs:
           private_key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          token: ${{ steps.auth.outputs.token }}
+          node-version: 21
+      - name: Release semantic version
+        env:
+          GITHUB_TOKEN: ${{ steps.auth.outputs.token }}
+        run: npx semantic-release
       - name: Release major version
         env:
           GITHUB_USER: ${{ secrets.DEVOPS_BOT_GIT_USER }}
           GITHUB_EMAIL: ${{ secrets.DEVOPS_BOT_GIT_EMAIL }}
         run: |
-          MAJOR_VERSION="$(cut -d '.' -f 1 <<< "$GITHUB_REF_NAME")"
-          git config user.name "${GITHUB_USER}"
-          git config user.email "${GITHUB_EMAIL}"
-          git tag -fa ${MAJOR_VERSION} -m "Map ${MAJOR_VERSION} to ${GITHUB_REF_NAME}"
-          git push origin ${MAJOR_VERSION} --force
+          echo git tag -l --contains ${{ github.sha }}
   notify:
     needs: [release]
     name: Notify
