@@ -9,7 +9,7 @@ jobs:
     steps:
       - name: Authenticate bot
         id: auth
-        uses: tibdex/github-app-token@v2
+        uses: getsentry/action-github-app-token@v3
         with:
           app_id: ${{ secrets.DEVOPS_BOT_APP_ID }}
           private_key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
