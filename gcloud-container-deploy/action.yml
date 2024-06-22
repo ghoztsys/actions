@@ -67,7 +67,7 @@ runs:
         labels=($(echo $LABELS | sed "s/,/ /g"))
         filter=$(printf " AND nodeConfig.labels.%s" "${labels[@]}")
         clusters=$(gcloud container clusters list \
-          $(if [ ! -z $REGION_ZONE ]; then echo "--zone $REGION_ZONE"; else echo ""; fi) \
+          $(if [ ! -z $REGION_ZONE ]; then echo "--zone=$REGION_ZONE"; else echo ""; fi) \
           $(if [ ! -z $labels ]; then echo "--filter=${filter:5}"; else echo ""; fi) \
           | awk 'NR >= 2 {print $1 "|" $2 "|" $4}' \
           | sed -n -e 'H;${x;s/\n/,/g;s/^,//;p;}')
