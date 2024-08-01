@@ -27,7 +27,7 @@ inputs:
     description: GitHub personal access token for code checkout and passing as GITHUB_TOKEN to Docker during image build
     required: false
   push:
-    default: 'false'
+    default: "false"
     description: Specifies if the built image should be pushed to the registry
   image-name:
     default: ${{ github.repository }}
@@ -80,11 +80,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        token: ${{ inputs.github-token && inputs.github-token || github.token }}
     - name: Authenticate Google Artifact Registry
       id: auth
       if: ${{ inputs.push }}
