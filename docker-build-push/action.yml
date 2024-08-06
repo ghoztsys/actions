@@ -34,8 +34,11 @@ inputs:
   image-tag-suffix:
     description: Docker image tag suffix
     required: false
+  load:
+    default: "false"
+    description: Specifies if the built image should be loaded into Docker
   push:
-    default: 'false'
+    default: "false"
     description: Specifies if the built image should be pushed to the registry
   registry:
     description: URL of the registry to push to
@@ -107,7 +110,7 @@ runs:
         context: .
         file: ${{ inputs.dockerfile-path }}
         labels: ${{ steps.metadata.outputs.labels }}
-        load: ${{ inputs.build-artifact-dir && inputs.push != 'true' && true || false }}
+        load: ${{ inputs.push == 'true' }}
         outputs: ${{ inputs.image-artifact-dir && format('type=docker,dest={0}/{1}.tar', inputs.image-artifact-dir, inputs.image-artifact-name) || '' }}
         provenance: false
         push: ${{ inputs.push == 'true' }}
