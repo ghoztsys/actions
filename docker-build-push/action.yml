@@ -99,7 +99,7 @@ runs:
         echo "image=${{ fromJSON(steps.metadata.outputs.json).tags[0] }}" >> $GITHUB_OUTPUT
     - name: Build image
       id: build
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         build-args: |
           ${{ inputs.build-args }}
