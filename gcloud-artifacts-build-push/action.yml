@@ -5,6 +5,9 @@
 name: Build
 description: Build and push a container image to Google Artifact Registry
 inputs:
+  build-args:
+    description: List of build-time arguments
+    required: false
   build-artifact-dir:
     description: Path to the built files directory in the container for artifact upload (newline-delimited string for each path, relative to the container's working directory)
     required: false
@@ -14,24 +17,18 @@ inputs:
   build-artifact-working-dir:
     default: /var/app
     description: Absolute path to the container’s working directory to set the upload location for built files (newline-delimited string, no trailing slash)
-  build-args:
-    description: List of build-time arguments
-    required: false
   build-secrets:
     description: List of build-time secrets (newline-delimited string)
     required: false
   dockerfile-path:
     default: Dockerfile
-    description: Path to the Dockerfile (relative to context, defaults to `Dockerfile`)
-  github-token:
-    description: GitHub personal access token for code checkout and passing as GITHUB_TOKEN to Docker during image build
+    description: Path to the Dockerfile (relative to context)
+  image-artifact-dir:
+    description: Path to the directory containing the built image for artifact upload (absolute or relative to working directory)
     required: false
-  load:
-    default: "false"
-    description: Specifies if the built image should be loaded into Docker
-  push:
-    default: "false"
-    description: Specifies if the built image should be pushed to the registry
+  image-artifact-name:
+    default: image-artifact
+    description: Name of the artifact containing the built image to be uploaded
   image-name:
     default: ${{ github.repository }}
     description: Docker image base name (excluding GCP project ID and registry)
@@ -40,18 +37,15 @@ inputs:
     required: false
   namespace:
     description: Repository namespace, i.e. GAR repository name
+  push:
+    default: "false"
+    description: Specifies if the built image should be pushed to the registry
   registry:
     default: us-docker.pkg.dev
     description: Registry path
   service-account:
     description: GCP service account to impersonate by the Workload Identity
     required: false
-  image-artifact-dir:
-    description: Path to the directory containing the built image for artifact upload (absolute or relative to working directory)
-    required: false
-  image-artifact-name:
-    default: image-artifact
-    description: Name of the artifact containing the built image to be uploaded
   workload-identity-provider:
     description: Workload Identity Provider name, i.e. `projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider`
     required: false
