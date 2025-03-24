@@ -2,7 +2,7 @@
 #   contents: read
 #   id-token: write
 
-name: Deploy
+name: Deploy to Google Cloud Run
 description: Deploys a container image to Google Cloud Run
 inputs:
   image:

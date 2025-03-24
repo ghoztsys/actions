@@ -2,7 +2,7 @@
 #   contents: read
 #   id-token: write
 
-name: Deploy
+name: Deploy to Google Kubernetes Engine
 description: Deploys a container image to Google Kubernetes Engine
 inputs:
   cluster-labels:
