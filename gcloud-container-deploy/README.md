@@ -16,7 +16,7 @@ steps:
       k8s-container: my-container
       k8s-deployment: my-deployment
       k8s-namespace: default
-      image: gcr.io/my-project/my-image:latest
+      image: us-docker.pkg.dev/my-project/my-image:latest
       service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
       workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
 ```
