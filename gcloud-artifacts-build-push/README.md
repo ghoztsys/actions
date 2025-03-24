@@ -5,6 +5,9 @@ Builds and pushes a container image to Google Artifact Registry.
 ## Usage
 
 ```yml
+permissions:
+  contents: read
+  id-token: write
 steps:
   - uses: ghoztsys/actions/gcloud-artifacts-build-push@v2
     with:
@@ -55,10 +58,10 @@ steps:
 
 ## Permissions
 
-Required permissions if using the automatically created `GITHUB_TOKEN` to authenticate to GitHub Container Registry:
+Required permissions:
 
 ```yml
 permissions:
   contents: read
-  packages: write
+  id-token: write
 ```
