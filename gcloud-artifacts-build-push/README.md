@@ -11,16 +11,23 @@ permissions:
 steps:
   - uses: ghoztsys/actions/gcloud-artifacts-build-push@v2
     with:
-      build-args: APP=api
-      build-artifact-dir: build/
-      build-artifact-name: api-build
-      dockerfile-path: apps/Dockerfile
-      image-name: api
-      namespace: ${{ vars.CONTAINER_REPOSITORY }}
+      build-args: |
+        ARG1=value1
+        ARG2=value2
+      build-artifact-dir: path/to/build/artifacts
+      build-artifact-name: custom-build-artifact
+      build-artifact-working-dir: /custom/working/dir
+      build-secrets: |
+        SECRET1=value1
+        SECRET2=value2
+      dockerfile-path: path/to/Dockerfile
+      image-artifact-dir: path/to/image/artifacts
+      image-artifact-name: custom-image-artifact
+      image-name: custom-image
+      namespace: custom-namespace
       push: true
-      registry: ${{ vars.GCP_CORE_CONTAINER_REGISTRY }}
-      service-account: ${{ github.event_name == 'release' && vars.GCP_CORE_SERVICE_ACCOUNT_PROD || vars.GCP_CORE_SERVICE_ACCOUNT_DEV }}
-      workload-identity-provider: ${{ github.event_name == 'release' && vars.GCP_CORE_WORKLOAD_IDENTITY_PROVIDER_PROD || vars.GCP_CORE_WORKLOAD_IDENTITY_PROVIDER_DEV }}
+      service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
 ```
 
 ### Inputs
