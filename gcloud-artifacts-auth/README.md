@@ -1,4 +1,4 @@
-# gcloud-artifacts-auth
+# `ghoztsys/actions/gcloud-artifacts-auth` ![GitHub Release](https://img.shields.io/github/v/release/ghoztsys/actions?label=latest)
 
 Authenticates to Google Artifact Registry.
 

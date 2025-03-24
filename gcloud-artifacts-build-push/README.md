@@ -1,4 +1,4 @@
-# gcloud-artifacts-build-push
+# `ghoztsys/actions/gcloud-artifacts-build-push` ![GitHub Release](https://img.shields.io/github/v/release/ghoztsys/actions?label=latest)
 
 Builds and pushes a container image to Google Artifact Registry.
 

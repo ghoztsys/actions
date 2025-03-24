@@ -1,4 +1,4 @@
-# gcloud-container-deploy
+# `ghoztsys/actions/gcloud-container-deploy` ![GitHub Release](https://img.shields.io/github/v/release/ghoztsys/actions?label=latest)
 
 Deploys a container image to Google Kubernetes Engine.
 

@@ -6,8 +6,8 @@ Collection of composite actions and reusable workflows for GitHub Actions.
 
 | Action | Description |
 | ------ | ----------- |
-| [`gcloud-artifacts-auth`](gcloud-artifacts-auth) | Executes a command while running a Docker container |
-| [`gcloud-artifacts-build-push`](gcloud-artifacts-build-push) | Deploys to GitHub Pages |
-| [`gcloud-container-deploy`](gcloud-container-deploy) | Builds and tests a Node.js project |
-| [`gcloud-run-deploy`](gcloud-run-deploy) | Publishes to an NPM registry |
-| [`sentry-release`](sentry-release) | Publishes a GitHub release |
+| [`ghoztsys/actions/gcloud-artifacts-auth`](gcloud-artifacts-auth) | Executes a command while running a Docker container |
+| [`ghoztsys/actions/gcloud-artifacts-build-push`](gcloud-artifacts-build-push) | Deploys to GitHub Pages |
+| [`ghoztsys/actions/gcloud-container-deploy`](gcloud-container-deploy) | Builds and tests a Node.js project |
+| [`ghoztsys/actions/gcloud-run-deploy`](gcloud-run-deploy) | Publishes to an NPM registry |
+| [`ghoztsys/actions/sentry-release`](sentry-release) | Publishes a GitHub release |

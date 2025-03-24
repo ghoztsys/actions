@@ -1,4 +1,4 @@
-# gcloud-run-deploy
+# `ghoztsys/actions/gcloud-run-deploy` ![GitHub Release](https://img.shields.io/github/v/release/ghoztsys/actions?label=latest)
 
 Deploys a container image to Google Cloud Run.
 
