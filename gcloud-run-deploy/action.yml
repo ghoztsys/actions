@@ -1,3 +1,6 @@
+# Required permissions:
+#   contents: read
+#   id-token: write
 
 name: Deploy
 description: Deploys a container image to Google Cloud Run
