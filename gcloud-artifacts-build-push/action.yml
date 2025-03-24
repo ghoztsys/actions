@@ -93,7 +93,7 @@ runs:
         workload-identity-provider: ${{ inputs.workload-identity-provider }}
     - name: Build
       id: build
-      uses: ghoztsys/actions/docker-build-push@master
+      uses: andrewscwei/actions/docker-build-push@v2
       with:
         build-artifact-dir: ${{ inputs.build-artifact-dir }}
         build-artifact-name: ${{ inputs.build-artifact-name }}
@@ -101,11 +101,9 @@ runs:
         build-args: ${{ inputs.build-args }}
         build-secrets: ${{ inputs.build-secrets }}
         dockerfile-path: ${{ inputs.dockerfile-path }}
-        github-token: ${{ inputs.github-token }}
         image-artifact-dir: ${{ inputs.image-artifact-dir }}
         image-artifact-name: ${{ inputs.image-artifact-name }}
         image-name: ${{ inputs.image-name }}
         image-tag-suffix: ${{ inputs.image-tag-suffix }}
-        load: ${{ inputs.load }}
         push: ${{ inputs.push }}
         registry: ${{ format('{0}{1}', steps.auth.outputs.repository, inputs.namespace && format('/{0}', inputs.namespace) || '') }}
